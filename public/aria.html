@@ -383,7 +383,7 @@ select.fi:focus{border-color:rgba(192,132,252,.45)}
     <div class="s-hint">Free at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys → Create Key</div>
 
     <div class="s-lbl"><b>2</b> Supabase Project URL</div>
-    <input class="s-inp" id="su-u" type="text" placeholder="https://xxxxxxxxxxxx.supabase.co" autocomplete="off" spellcheck="false"/>
+    <input class="s-inp" id="su-u" type="text" placeholder="https://xxxxxxxxxxxx.supabase.co" value="https://nuypzrnasnydumcgscjg.supabase.co" autocomplete="off" spellcheck="false"/>
     <div class="s-hint">Supabase → Settings → API → Project URL &nbsp;(copy the full URL)</div>
 
     <div class="s-lbl"><b>3</b> Supabase Anon Key</div>
@@ -787,7 +787,7 @@ create policy "allow_all" on aria_messages for all using (true) with check (true
 
 // ── STATE ─────────────────────────────────────────
 let DB = null;
-let apiKey='', sbUrl='', sbAnon='', elevenKey='', elevenVoiceId='9BWtsMINqrJLrRacOk9x';
+let apiKey='', sbUrl='https://nuypzrnasnydumcgscjg.supabase.co', sbAnon='', elevenKey='', elevenVoiceId='9BWtsMINqrJLrRacOk9x';
 let profile={}, memory={}, chatMsgs=[], settings={
   voice:true, autoread:true, mic:true, proactive:true,
   learn:true, emotion:true, cam:true, autodesc:true, fallback:true, websearch:false
@@ -961,45 +961,7 @@ async function dbSet(tbl, id, val) { if (!DB) return false; try { const {error}=
 async function dbDel(tbl, id) { if (!DB) return; try { await DB.from(tbl).delete().eq('id', id); } catch(e){} }
 async function dbAll(tbl) { if (!DB) return []; try { const {data,error}=await DB.from(tbl).select('*').order('updated_at', { ascending:true }); if (error) throw error; return data || []; } catch(e){ return []; } }
 
-// ── SETUP ─────────────────────────────────────────
-function showSetup(){ document.getElementById('setup').style.display='flex'; }
-function hideSetup(){ document.getElementById('setup').style.display='none'; }
-function setErr(msg){ const el=document.getElementById('s-err'); el.textContent=msg; el.style.display='block'; document.getElementById('s-ok').style.display='none'; }
-function setOk(msg){ const el=document.getElementById('s-ok'); el.textContent=msg; el.style.display='block'; document.getElementById('s-err').style.display='none'; }
-function clearMsg(){ document.getElementById('s-err').style.display='none'; document.getElementById('s-ok').style.display='none'; }
-async function runSetup(){ const btn=document.getElementById('su-btn'); clearMsg(); const a=document.getElementById('su-a').value.trim(); const u=document.getElementById('su-u').value.trim(); const k=document.getElementById('su-k').value.trim(); if(!a){setErr('Please paste your Anthropic API key.');return;} if(!u){setErr('Please paste your Supabase Project URL.');return;} if(!k){setErr('Please paste your Supabase Anon Key.');return;} let cleanUrl=u.trim(); if(!cleanUrl.startsWith('http')) cleanUrl='https://'+cleanUrl; cleanUrl=cleanUrl.replace(/\/+$/, ''); let urlValid=false; try{ const parsed=new URL(cleanUrl); urlValid=parsed.hostname.includes('supabase'); } catch{} if(!urlValid){setErr('Supabase URL looks wrong.');return;} if(k.length<20){setErr('Supabase anon key looks too short.');return;} btn.textContent='Connecting...'; btn.disabled=true; const ok=await tryConnect(cleanUrl, k); if(!ok){ setErr('Could not connect to Supabase.'); btn.textContent='Connect Meet Aria'; btn.disabled=false; return; } apiKey=a; sbUrl=cleanUrl; sbAnon=k; await dbSet('ariaconfig','anthropickey',apiKey); lsSave(); setOk('Connected successfully! Starting Aria...'); setTimeout(()=>{ hideSetup(); bootApp(); },800); }
-function copySQL(){ const txt=document.getElementById('sqlblock').textContent; navigator.clipboard.writeText(txt).then(()=>toast('SQL copied! Paste in Supabase SQL Editor.', 'ok')).catch(()=>toast('Copy failed — select manually.', 'err')); }
-
-// ── BOOT APP ──────────────────────────────────────
-async function bootApp(){
-  setSyncSt('busy','Loading Aria...');
-  setOrbSt('thinking');
-  try {
-    const [prof, memRows, storedKey, storedEleven, storedVoiceId, storedSet, msgRes] = await Promise.all([
-      dbGet('ariaconfig','profile'), dbAll('ariamemory'), dbGet('ariaconfig','anthropickey'), dbGet('ariaconfig','elevenkey'), dbGet('ariaconfig','elevenvoiceid'), dbGet('ariaconfig','settings'), DB ? DB.from('ariamessages').select('*').order('createdat', { ascending:true }).limit(100) : Promise.resolve({data:[]})
-    ]);
-    if (prof) profile = prof;
-    if (storedKey) apiKey = storedKey;
-    if (storedEleven) elevenKey = storedEleven;
-    if (storedVoiceId) elevenVoiceId = storedVoiceId;
-    if (storedSet) Object.assign(settings, storedSet);
-    memRows.forEach(r => { try{ memory[r.id]=JSON.parse(r.value); }catch{ memory[r.id]=r.value; } });
-    syncTogsUI?.();
-    const rows = msgRes?.data || [];
-    rows.forEach(r=>{ chatMsgs.push({role:r.role, content:r.content, type:r.msgtype||'normal'}); renderMsg(r.role, r.content, r.msgtype||'normal'); });
-    if (rows.length) hasGreeted = true;
-    updateMemList?.();
-    setSyncSt('ok','Supabase connected');
-    lsSave();
-    if (settings.cam && !camActive) tryCamera?.();
-    if (!hasGreeted) setTimeout(greet, 600);
-    else setOrbSt('idle');
-  } catch(e) {
-    console.error(e);
-    setSyncSt('err','Loading failed');
-    setOrbSt('idle');
-  }
-}
+// (duplicate block removed — canonical versions are below)
 // ── SETUP ─────────────────────────────────────────
 function showSetup(){ document.getElementById('setup').style.display='flex'; }
 function hideSetup(){ document.getElementById('setup').style.display='none'; }
