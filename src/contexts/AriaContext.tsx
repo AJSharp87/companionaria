@@ -689,7 +689,9 @@ ${knownStr}`;
       const ok = await tryConnect(cleanU, newSbAnon);
       if (!ok) { toast('Cannot connect to Supabase', 'err'); return false; }
       setSbUrl(cleanU);
+      sbUrlRef.current = cleanU;
       setSbAnon(newSbAnon);
+      sbAnonRef.current = newSbAnon;
     }
     await dbSet('aria_config', 'anthropic_key', newApiKey);
     lsSave();
@@ -896,7 +898,9 @@ ${knownStr}`;
     setApiKey(anthropicKey);
     apiKeyRef.current = anthropicKey;
     setSbUrl(cleanUrl);
+    sbUrlRef.current = cleanUrl;
     setSbAnon(supaAnon);
+    sbAnonRef.current = supaAnon;
     await dbSet('aria_config', 'anthropic_key', anthropicKey);
     lsSave();
     setIsSetupComplete(true);
