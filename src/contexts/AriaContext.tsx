@@ -102,6 +102,8 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [apiKey, setApiKey] = useState('');
   const [sbUrl, setSbUrl] = useState('https://nuypzrnasnydumcgscjg.supabase.co');
   const [sbAnon, setSbAnon] = useState('');
+  const sbUrlRef = useRef(sbUrl);
+  const sbAnonRef = useRef(sbAnon);
   const [elevenKey, setElevenKey] = useState('');
   const [elevenVoiceId, setElevenVoiceId] = useState('9BWtsMINqrJLrRacOk9x');
   const [profile, setProfile] = useState<AriaProfile>({});
@@ -140,6 +142,8 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { profileRef.current = profile; }, [profile]);
   useEffect(() => { elevenKeyRef.current = elevenKey; }, [elevenKey]);
   useEffect(() => { elevenVoiceIdRef.current = elevenVoiceId; }, [elevenVoiceId]);
+  useEffect(() => { sbUrlRef.current = sbUrl; }, [sbUrl]);
+  useEffect(() => { sbAnonRef.current = sbAnon; }, [sbAnon]);
 
   // ── LocalStorage ──
   const lsSave = useCallback(() => {
