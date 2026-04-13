@@ -9,6 +9,8 @@ import { FilesPanel } from './FilesPanel';
 import { BackupPanel } from './BackupPanel';
 import { OrbModePanel } from './OrbModePanel';
 import { SetupOverlay } from './SetupOverlay';
+import { LensModePanel } from './LensModePanel';
+import { WebIngestionPanel } from './WebIngestionPanel';
 
 const panels: Record<string, React.FC> = {
   chat: ChatPanel,
@@ -18,6 +20,8 @@ const panels: Record<string, React.FC> = {
   files: FilesPanel,
   backup: BackupPanel,
   orb: OrbModePanel,
+  lens: LensModePanel,
+  web: WebIngestionPanel,
 };
 
 export const AriaLayout = () => {
