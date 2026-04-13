@@ -996,13 +996,13 @@ ${knownStr}`;
     isSetupComplete, apiKey, sbUrl, sbAnon, elevenKey, elevenVoiceId,
     profile, memory, chatMsgs, settings, orbState, isSpeaking, isListening,
     camActive, activePanel, syncStatus, currentAttachment, toastMsg, hasGreeted,
-    camStreamRef, micStreamRef,
+    camStreamRef, micStreamRef, lensActive, setLensActive,
     runSetup, setActivePanel, sendMsg, snapAndAsk, speak: speakFn, stopSpeak: stopSpeakFn,
     toggleMic, toggleVoice, toggleCam, toggleSetting, saveProfile: saveProfileFn,
     addMemory, delMemory, saveKeys, saveVoiceSettings, exportBackup: exportBackup,
     importBackup, clearChat, nukeAll, setAttachment: setCurrentAttachment,
     processFile, askAriaAboutFile, toast, tryCamera, stopCamera, captureFrame,
-    loadHistory, addPerson,
+    loadHistory, addPerson, logVisualObservation, ingestUrl, searchRecall,
   };
 
   return <AriaContext.Provider value={value}>{children}</AriaContext.Provider>;
