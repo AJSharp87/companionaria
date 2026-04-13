@@ -86,6 +86,11 @@ interface AriaContextType {
   captureFrame: () => string | null;
   loadHistory: (query: string) => Promise<any[]>;
   addPerson: (name: string, desc: string) => Promise<void>;
+  logVisualObservation: (label: string, confidence: number) => Promise<void>;
+  ingestUrl: (url: string) => Promise<void>;
+  searchRecall: (query: string) => Promise<any[]>;
+  lensActive: boolean;
+  setLensActive: (active: boolean) => void;
 }
 
 const AriaContext = createContext<AriaContextType | null>(null);
