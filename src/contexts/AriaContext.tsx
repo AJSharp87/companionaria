@@ -119,6 +119,7 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [camActive, setCamActive] = useState(false);
+  const [lensActive, setLensActive] = useState(false);
   const [activePanel, setActivePanel] = useState('chat');
   const [syncStatus, setSyncStatus] = useState({ state: '', label: '' });
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
