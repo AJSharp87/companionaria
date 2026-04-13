@@ -86,6 +86,11 @@ interface AriaContextType {
   captureFrame: () => string | null;
   loadHistory: (query: string) => Promise<any[]>;
   addPerson: (name: string, desc: string) => Promise<void>;
+  logVisualObservation: (label: string, confidence: number) => Promise<void>;
+  ingestUrl: (url: string) => Promise<void>;
+  searchRecall: (query: string) => Promise<any[]>;
+  lensActive: boolean;
+  setLensActive: (active: boolean) => void;
 }
 
 const AriaContext = createContext<AriaContextType | null>(null);
@@ -102,6 +107,8 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [apiKey, setApiKey] = useState('');
   const [sbUrl, setSbUrl] = useState('https://nuypzrnasnydumcgscjg.supabase.co');
   const [sbAnon, setSbAnon] = useState('');
+  const sbUrlRef = useRef(sbUrl);
+  const sbAnonRef = useRef(sbAnon);
   const [elevenKey, setElevenKey] = useState('');
   const [elevenVoiceId, setElevenVoiceId] = useState('9BWtsMINqrJLrRacOk9x');
   const [profile, setProfile] = useState<AriaProfile>({});
@@ -112,6 +119,7 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [camActive, setCamActive] = useState(false);
+  const [lensActive, setLensActive] = useState(false);
   const [activePanel, setActivePanel] = useState('chat');
   const [syncStatus, setSyncStatus] = useState({ state: '', label: '' });
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
@@ -140,16 +148,19 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { profileRef.current = profile; }, [profile]);
   useEffect(() => { elevenKeyRef.current = elevenKey; }, [elevenKey]);
   useEffect(() => { elevenVoiceIdRef.current = elevenVoiceId; }, [elevenVoiceId]);
+  useEffect(() => { sbUrlRef.current = sbUrl; }, [sbUrl]);
+  useEffect(() => { sbAnonRef.current = sbAnon; }, [sbAnon]);
 
   // ── LocalStorage ──
   const lsSave = useCallback(() => {
     try {
       localStorage.setItem('aria_v3', JSON.stringify({
-        sbUrl, sbAnon, apiKey: apiKeyRef.current, elevenKey: elevenKeyRef.current,
-        elevenVoiceId: elevenVoiceIdRef.current, settings: settingsRef.current,
+        sbUrl: sbUrlRef.current, sbAnon: sbAnonRef.current, apiKey: apiKeyRef.current,
+        elevenKey: elevenKeyRef.current, elevenVoiceId: elevenVoiceIdRef.current,
+        settings: settingsRef.current,
       }));
     } catch {}
-  }, [sbUrl, sbAnon]);
+  }, []);
 
   // ── Toast ──
   const toast = useCallback((msg: string, type = '') => {
@@ -684,7 +695,9 @@ ${knownStr}`;
       const ok = await tryConnect(cleanU, newSbAnon);
       if (!ok) { toast('Cannot connect to Supabase', 'err'); return false; }
       setSbUrl(cleanU);
+      sbUrlRef.current = cleanU;
       setSbAnon(newSbAnon);
+      sbAnonRef.current = newSbAnon;
     }
     await dbSet('aria_config', 'anthropic_key', newApiKey);
     lsSave();
@@ -826,6 +839,67 @@ ${knownStr}`;
     } catch { return []; }
   }, []);
 
+  // ── Visual Observations (TensorFlow.js) ──
+  const getDeviceType = () => {
+    const ua = navigator.userAgent;
+    if (/mobile/i.test(ua)) return 'mobile';
+    if (/tablet|ipad/i.test(ua)) return 'tablet';
+    return 'desktop';
+  };
+
+  const logVisualObservation = useCallback(async (label: string, confidence: number) => {
+    if (!dbRef.current) return;
+    try {
+      await dbRef.current.from('visual_observations').insert({
+        object_label: label,
+        confidence_score: confidence,
+        device_type: getDeviceType(),
+      });
+    } catch (e: any) { console.warn('logVisualObservation:', e.message); }
+  }, []);
+
+  // ── Web Ingestion & Passive Recall ──
+  const ingestUrl = useCallback(async (url: string) => {
+    if (!dbRef.current) { toast('Not connected to database', 'err'); return; }
+    toast('Ingesting URL...');
+    try {
+      let formattedUrl = url.trim();
+      if (!formattedUrl.startsWith('http')) formattedUrl = 'https://' + formattedUrl;
+      // Use a CORS proxy or direct fetch for metadata
+      const res = await fetch(formattedUrl);
+      const html = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const title = doc.querySelector('title')?.textContent || '';
+      const description = doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+      await dbRef.current.from('passive_recall_logs').insert({
+        url: formattedUrl, title, description, device_type: getDeviceType(),
+      });
+      toast('URL ingested: ' + (title || formattedUrl), 'ok');
+    } catch (e: any) {
+      // Fallback: save URL without metadata if fetch fails (CORS)
+      try {
+        await dbRef.current!.from('passive_recall_logs').insert({
+          url: url.trim(), title: url.trim(), description: 'Could not fetch metadata (CORS)', device_type: getDeviceType(),
+        });
+        toast('URL saved (metadata unavailable due to CORS)', 'ok');
+      } catch (e2: any) { toast('Failed to ingest URL: ' + e2.message, 'err'); }
+    }
+  }, [toast]);
+
+  const searchRecall = useCallback(async (query: string) => {
+    if (!dbRef.current) return [];
+    try {
+      const { data } = await dbRef.current.from('passive_recall_logs').select('*').order('created_at', { ascending: false }).limit(100);
+      const rows = data || [];
+      if (!query) return rows;
+      const q = query.toLowerCase();
+      return rows.filter((r: any) =>
+        r.url?.toLowerCase().includes(q) || r.title?.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q)
+      );
+    } catch { return []; }
+  }, []);
+
   // ── Greet ──
   const greet = useCallback(async () => {
     let msg: string;
@@ -891,7 +965,9 @@ ${knownStr}`;
     setApiKey(anthropicKey);
     apiKeyRef.current = anthropicKey;
     setSbUrl(cleanUrl);
+    sbUrlRef.current = cleanUrl;
     setSbAnon(supaAnon);
+    sbAnonRef.current = supaAnon;
     await dbSet('aria_config', 'anthropic_key', anthropicKey);
     lsSave();
     setIsSetupComplete(true);
@@ -920,13 +996,13 @@ ${knownStr}`;
     isSetupComplete, apiKey, sbUrl, sbAnon, elevenKey, elevenVoiceId,
     profile, memory, chatMsgs, settings, orbState, isSpeaking, isListening,
     camActive, activePanel, syncStatus, currentAttachment, toastMsg, hasGreeted,
-    camStreamRef, micStreamRef,
+    camStreamRef, micStreamRef, lensActive, setLensActive,
     runSetup, setActivePanel, sendMsg, snapAndAsk, speak: speakFn, stopSpeak: stopSpeakFn,
     toggleMic, toggleVoice, toggleCam, toggleSetting, saveProfile: saveProfileFn,
     addMemory, delMemory, saveKeys, saveVoiceSettings, exportBackup: exportBackup,
     importBackup, clearChat, nukeAll, setAttachment: setCurrentAttachment,
     processFile, askAriaAboutFile, toast, tryCamera, stopCamera, captureFrame,
-    loadHistory, addPerson,
+    loadHistory, addPerson, logVisualObservation, ingestUrl, searchRecall,
   };
 
   return <AriaContext.Provider value={value}>{children}</AriaContext.Provider>;
