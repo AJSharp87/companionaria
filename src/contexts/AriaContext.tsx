@@ -839,6 +839,67 @@ ${knownStr}`;
     } catch { return []; }
   }, []);
 
+  // ── Visual Observations (TensorFlow.js) ──
+  const getDeviceType = () => {
+    const ua = navigator.userAgent;
+    if (/mobile/i.test(ua)) return 'mobile';
+    if (/tablet|ipad/i.test(ua)) return 'tablet';
+    return 'desktop';
+  };
+
+  const logVisualObservation = useCallback(async (label: string, confidence: number) => {
+    if (!dbRef.current) return;
+    try {
+      await dbRef.current.from('visual_observations').insert({
+        object_label: label,
+        confidence_score: confidence,
+        device_type: getDeviceType(),
+      });
+    } catch (e: any) { console.warn('logVisualObservation:', e.message); }
+  }, []);
+
+  // ── Web Ingestion & Passive Recall ──
+  const ingestUrl = useCallback(async (url: string) => {
+    if (!dbRef.current) { toast('Not connected to database', 'err'); return; }
+    toast('Ingesting URL...');
+    try {
+      let formattedUrl = url.trim();
+      if (!formattedUrl.startsWith('http')) formattedUrl = 'https://' + formattedUrl;
+      // Use a CORS proxy or direct fetch for metadata
+      const res = await fetch(formattedUrl);
+      const html = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const title = doc.querySelector('title')?.textContent || '';
+      const description = doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+      await dbRef.current.from('passive_recall_logs').insert({
+        url: formattedUrl, title, description, device_type: getDeviceType(),
+      });
+      toast('URL ingested: ' + (title || formattedUrl), 'ok');
+    } catch (e: any) {
+      // Fallback: save URL without metadata if fetch fails (CORS)
+      try {
+        await dbRef.current!.from('passive_recall_logs').insert({
+          url: url.trim(), title: url.trim(), description: 'Could not fetch metadata (CORS)', device_type: getDeviceType(),
+        });
+        toast('URL saved (metadata unavailable due to CORS)', 'ok');
+      } catch (e2: any) { toast('Failed to ingest URL: ' + e2.message, 'err'); }
+    }
+  }, [toast]);
+
+  const searchRecall = useCallback(async (query: string) => {
+    if (!dbRef.current) return [];
+    try {
+      const { data } = await dbRef.current.from('passive_recall_logs').select('*').order('created_at', { ascending: false }).limit(100);
+      const rows = data || [];
+      if (!query) return rows;
+      const q = query.toLowerCase();
+      return rows.filter((r: any) =>
+        r.url?.toLowerCase().includes(q) || r.title?.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q)
+      );
+    } catch { return []; }
+  }, []);
+
   // ── Greet ──
   const greet = useCallback(async () => {
     let msg: string;
