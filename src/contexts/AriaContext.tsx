@@ -149,11 +149,12 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lsSave = useCallback(() => {
     try {
       localStorage.setItem('aria_v3', JSON.stringify({
-        sbUrl, sbAnon, apiKey: apiKeyRef.current, elevenKey: elevenKeyRef.current,
-        elevenVoiceId: elevenVoiceIdRef.current, settings: settingsRef.current,
+        sbUrl: sbUrlRef.current, sbAnon: sbAnonRef.current, apiKey: apiKeyRef.current,
+        elevenKey: elevenKeyRef.current, elevenVoiceId: elevenVoiceIdRef.current,
+        settings: settingsRef.current,
       }));
     } catch {}
-  }, [sbUrl, sbAnon]);
+  }, []);
 
   // ── Toast ──
   const toast = useCallback((msg: string, type = '') => {
