@@ -105,8 +105,10 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const dbRef = useRef<SupabaseClient | null>(null);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [apiKey, setApiKey] = useState('');
-  const [sbUrl, setSbUrl] = useState('https://nuypzrnasnydumcgscjg.supabase.co');
-  const [sbAnon, setSbAnon] = useState('');
+  const HARDCODED_SB_URL = 'https://nuypzrnasnydumcgscjg.supabase.co';
+  const HARDCODED_SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51eXB6cm5hc255ZHVtY2dzY2pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NzQxNTMsImV4cCI6MjA5MTM1MDE1M30.9ic0eZIHfqt5BHE3NCsFmC2y7lAXbxbbw6RKUSufMIk';
+  const [sbUrl, setSbUrl] = useState(HARDCODED_SB_URL);
+  const [sbAnon, setSbAnon] = useState(HARDCODED_SB_ANON);
   const sbUrlRef = useRef(sbUrl);
   const sbAnonRef = useRef(sbAnon);
   const [elevenKey, setElevenKey] = useState('');
@@ -975,20 +977,19 @@ ${knownStr}`;
     return true;
   }, [tryConnect, dbSet, lsSave, bootApp, toast]);
 
-  // ── Auto-boot from localStorage ──
+  // ── Auto-boot: always connect using hardcoded credentials, overlay localStorage extras ──
   useEffect(() => {
     const lc = (() => { try { return JSON.parse(localStorage.getItem('aria_v3') || ''); } catch { return null; } })();
-    if (lc && lc.sbUrl && lc.sbAnon) {
-      setSbUrl(lc.sbUrl);
-      setSbAnon(lc.sbAnon);
+    if (lc) {
       if (lc.apiKey) { setApiKey(lc.apiKey); apiKeyRef.current = lc.apiKey; }
       if (lc.elevenKey) { setElevenKey(lc.elevenKey); elevenKeyRef.current = lc.elevenKey; }
       if (lc.elevenVoiceId) { setElevenVoiceId(lc.elevenVoiceId); elevenVoiceIdRef.current = lc.elevenVoiceId; }
       if (lc.settings) { setSettings(prev => ({ ...prev, ...lc.settings })); settingsRef.current = { ...DEFAULT_SETTINGS, ...lc.settings }; }
-      tryConnect(lc.sbUrl, lc.sbAnon).then(ok => {
-        if (ok) { setIsSetupComplete(true); bootApp(); }
-      });
     }
+    // Always auto-connect with hardcoded Supabase credentials
+    tryConnect(HARDCODED_SB_URL, HARDCODED_SB_ANON).then(ok => {
+      if (ok) { setIsSetupComplete(true); bootApp(); }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
