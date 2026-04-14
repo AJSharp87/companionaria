@@ -123,7 +123,7 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [camActive, setCamActive] = useState(false);
   const [lensActive, setLensActive] = useState(false);
   const [activePanel, setActivePanel] = useState('chat');
-  const [syncStatus, setSyncStatus] = useState({ state: '', label: '' });
+  const [syncStatus, setSyncStatus] = useState({ state: 'busy', label: 'Connecting to Aria...' });
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: string } | null>(null);
   const [hasGreeted, setHasGreeted] = useState(false);
@@ -744,11 +744,42 @@ ${knownStr}`;
     } catch (e: any) { return '[DOCX read failed: ' + e.message + ']'; }
   };
 
+  const uploadFileToStorage = useCallback(async (file: File) => {
+    if (!dbRef.current) return false;
+    const bucket = 'aria-files';
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+    try {
+      const { error } = await dbRef.current.storage.from(bucket).upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || undefined,
+      });
+      if (error) throw error;
+      return true;
+    } catch (e: any) {
+      console.warn('uploadFileToStorage:', e.message);
+      if (/bucket|storage|not found|relation/i.test(e.message || '')) {
+        toast('Run the storage SQL setup, then try uploading again.', 'err');
+      } else {
+        toast('Could not save file: ' + e.message, 'err');
+      }
+      return false;
+    }
+  }, [toast]);
+
   const processFile = useCallback(async (file: File, forChat: boolean) => {
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
     const imgExts = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
     const txtExts = ['txt', 'md', 'csv', 'json'];
+    const supported = imgExts.includes(ext) || txtExts.includes(ext) || ext === 'pdf' || ext === 'docx';
+    if (!supported) {
+      toast('Unsupported file type: .' + ext, 'err');
+      return;
+    }
+
     toast('Reading ' + file.name + '...');
+    const saved = await uploadFileToStorage(file);
 
     if (imgExts.includes(ext)) {
       const reader = new FileReader();
@@ -756,24 +787,41 @@ ${knownStr}`;
         const result = (e.target?.result as string) || '';
         const data = result.split(',')[1];
         const mime = file.type || 'image/png';
-        if (forChat) setCurrentAttachment({ type: 'image', name: file.name, data, mimeType: mime });
-        else toast('Image loaded: ' + file.name, 'ok');
+        if (forChat) {
+          setCurrentAttachment({ type: 'image', name: file.name, data, mimeType: mime });
+          toast(saved ? 'Image attached and saved ✓' : 'Image attached ✓', 'ok');
+        } else {
+          toast(saved ? 'Image saved: ' + file.name : 'Image loaded: ' + file.name, 'ok');
+        }
       };
+      reader.onerror = () => toast('Could not read ' + file.name, 'err');
       reader.readAsDataURL(file);
     } else if (txtExts.includes(ext)) {
       const content = await file.text();
-      if (forChat) setCurrentAttachment({ type: 'text', name: file.name, content });
-      else toast('File loaded: ' + file.name, 'ok');
+      if (forChat) {
+        setCurrentAttachment({ type: 'text', name: file.name, content });
+        toast(saved ? 'File attached and saved ✓' : 'File attached ✓', 'ok');
+      } else {
+        toast(saved ? 'File saved: ' + file.name : 'File loaded: ' + file.name, 'ok');
+      }
     } else if (ext === 'pdf') {
       const content = await readPDF(file);
-      if (forChat) setCurrentAttachment({ type: 'text', name: file.name, content });
+      if (forChat) {
+        setCurrentAttachment({ type: 'text', name: file.name, content });
+        toast(saved ? 'PDF attached and saved ✓' : 'PDF attached ✓', 'ok');
+      } else {
+        toast(saved ? 'PDF saved: ' + file.name : 'PDF loaded: ' + file.name, 'ok');
+      }
     } else if (ext === 'docx') {
       const content = await readDOCX(file);
-      if (forChat) setCurrentAttachment({ type: 'text', name: file.name, content });
-    } else {
-      toast('Unsupported file type: .' + ext, 'err');
+      if (forChat) {
+        setCurrentAttachment({ type: 'text', name: file.name, content });
+        toast(saved ? 'DOCX attached and saved ✓' : 'DOCX attached ✓', 'ok');
+      } else {
+        toast(saved ? 'DOCX saved: ' + file.name : 'DOCX loaded: ' + file.name, 'ok');
+      }
     }
-  }, [toast]);
+  }, [toast, uploadFileToStorage]);
 
   const askAriaAboutFile = useCallback(async (content: string, name: string, question?: string) => {
     const prompt = question || 'Please read this file and give me a summary and any useful insights.';
@@ -822,6 +870,15 @@ ${knownStr}`;
 
   const nukeAll = useCallback(async () => {
     if (dbRef.current) {
+      try {
+        const { data: storedFiles } = await dbRef.current.storage.from('aria-files').list('', {
+          limit: 1000,
+          offset: 0,
+          sortBy: { column: 'name', order: 'asc' },
+        });
+        const paths = (storedFiles || []).map((file: any) => file.name).filter(Boolean);
+        if (paths.length) await dbRef.current.storage.from('aria-files').remove(paths);
+      } catch {}
       await Promise.all([
         dbRef.current.from('aria_config').delete().neq('id', '__never__'),
         dbRef.current.from('aria_memory').delete().neq('id', '__never__'),
@@ -942,11 +999,13 @@ ${knownStr}`;
       setChatMsgs(loaded);
       chatMsgsRef.current = loaded;
       const hadMsgs = rows.length > 0;
+      const hasAnthropicKey = Boolean(storedKey || apiKeyRef.current);
       if (hadMsgs) setHasGreeted(true);
+      setIsSetupComplete(hasAnthropicKey);
       setSyncStatus({ state: 'ok', label: 'Supabase connected' });
       lsSave();
       setOrbState('idle');
-      if (!hadMsgs) setTimeout(() => greet(), 600);
+      if (hasAnthropicKey && !hadMsgs) setTimeout(() => greet(), 600);
     } catch (e) {
       console.error('bootApp error:', e);
       setSyncStatus({ state: 'err', label: 'Loading failed' });
@@ -979,6 +1038,7 @@ ${knownStr}`;
 
   // ── Auto-boot: always connect using hardcoded credentials, overlay localStorage extras ──
   useEffect(() => {
+    setSyncStatus({ state: 'busy', label: 'Connecting to Aria...' });
     const lc = (() => { try { return JSON.parse(localStorage.getItem('aria_v3') || ''); } catch { return null; } })();
     if (lc) {
       if (lc.apiKey) { setApiKey(lc.apiKey); apiKeyRef.current = lc.apiKey; }
@@ -986,9 +1046,8 @@ ${knownStr}`;
       if (lc.elevenVoiceId) { setElevenVoiceId(lc.elevenVoiceId); elevenVoiceIdRef.current = lc.elevenVoiceId; }
       if (lc.settings) { setSettings(prev => ({ ...prev, ...lc.settings })); settingsRef.current = { ...DEFAULT_SETTINGS, ...lc.settings }; }
     }
-    // Always auto-connect with hardcoded Supabase credentials
-    tryConnect(HARDCODED_SB_URL, HARDCODED_SB_ANON).then(ok => {
-      if (ok) { setIsSetupComplete(true); bootApp(); }
+    tryConnect(HARDCODED_SB_URL, HARDCODED_SB_ANON).then(async (ok) => {
+      if (ok) await bootApp();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
