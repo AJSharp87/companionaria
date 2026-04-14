@@ -25,12 +25,12 @@ const panels: Record<string, React.FC> = {
 };
 
 export const AriaLayout = () => {
-  const { isSetupComplete, activePanel, toastMsg } = useAria();
+  const { isSetupComplete, activePanel, toastMsg, syncStatus } = useAria();
   const PanelComponent = panels[activePanel] || ChatPanel;
 
   return (
     <>
-      {!isSetupComplete && <SetupOverlay />}
+      {!isSetupComplete && syncStatus.state !== 'busy' && <SetupOverlay />}
       <SidebarProvider>
         <div className="min-h-screen flex w-full">
           <AriaSidebar />
