@@ -14,7 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      aria_config: {
+        Row: {
+          id: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          id?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      aria_memory: {
+        Row: {
+          id: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          id?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      aria_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: number
+          msg_type: string
+          role: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: number
+          msg_type?: string
+          role?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: number
+          msg_type?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      passive_recall_logs: {
+        Row: {
+          created_at: string
+          description: string
+          device_type: string
+          id: number
+          title: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          device_type?: string
+          id?: number
+          title?: string
+          url?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          device_type?: string
+          id?: number
+          title?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      visual_observations: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          device_type: string
+          id: number
+          object_label: string
+        }
+        Insert: {
+          confidence_score?: number
+          created_at?: string
+          device_type?: string
+          id?: number
+          object_label?: string
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          device_type?: string
+          id?: number
+          object_label?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
