@@ -1,4 +1,4 @@
-import { MessageSquare, User, Brain, Settings, FolderOpen, HardDrive, Circle, Eye, Globe } from 'lucide-react';
+import { MessageSquare, User, Brain, Settings, FolderOpen, HardDrive, Circle, Eye, Globe, Scan } from 'lucide-react';
 import { useAria } from '@/contexts/AriaContext';
 import { AriaOrb } from './AriaOrb';
 import {
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'orb', label: 'Orb Mode', icon: Circle },
   { id: 'lens', label: 'Lens Mode', icon: Eye },
+  { id: 'face', label: 'Face Mode', icon: Scan },
   { id: 'web', label: 'Web Memory', icon: Globe },
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'memory', label: 'Memory', icon: Brain },
