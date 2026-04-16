@@ -493,57 +493,45 @@ ${knownStr}`;
     if (!clean) return;
     const ek = elevenKeyRef.current;
     const evid = elevenVoiceIdRef.current;
-    if (ek && evid) {
-      try {
-        setOrbState('speaking');
-        isSpeakingRef.current = true;
-        setIsSpeaking(true);
-        const chunks = splitChunks(clean, 400);
-        for (const ch of chunks) {
-          if (!isSpeakingRef.current) break;
-          stopCtrlRef.current = new AbortController();
-          const res = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + evid, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'xi-api-key': ek },
-            body: JSON.stringify({
-              text: ch, model_id: 'eleven_turbo_v2_5',
-              voice_settings: { stability: 0.48, similarity_boost: 0.88, style: 0.52, use_speaker_boost: true },
-            }),
-            signal: stopCtrlRef.current.signal,
-          });
-          if (!isSpeakingRef.current) return;
-          if (!res.ok) throw new Error('ElevenLabs ' + res.status);
-          const url = URL.createObjectURL(await res.blob());
-          if (!isSpeakingRef.current) { URL.revokeObjectURL(url); return; }
-          await playUrl(url);
-          URL.revokeObjectURL(url);
-        }
-        isSpeakingRef.current = false;
-        setIsSpeaking(false);
-        setOrbState('idle');
-        return;
-      } catch (e: any) {
-        if (e.name === 'AbortError') return;
-        console.warn('ElevenLabs failed:', e.message);
-        if (!settingsRef.current.fallback) {
-          isSpeakingRef.current = false;
-          setIsSpeaking(false);
-          setOrbState('idle');
-          return;
-        }
-      }
+    if (!ek || !evid) {
+      toast('Add your ElevenLabs API key and Voice ID in Settings to enable voice', 'err');
+      return;
     }
-    // Browser fallback
-    if (!window.speechSynthesis) return;
-    const u = new SpeechSynthesisUtterance(clean.substring(0, 1200));
-    const voices = window.speechSynthesis.getVoices();
-    const v = voices.find((v: SpeechSynthesisVoice) => /samantha|victoria|karen|moira|aria|zira/i.test(v.name) && v.lang.startsWith('en')) || voices.find((v: SpeechSynthesisVoice) => v.lang.startsWith('en-'));
-    if (v) u.voice = v;
-    u.pitch = 1.05; u.rate = 0.9; u.volume = 1;
-    u.onstart = () => { isSpeakingRef.current = true; setIsSpeaking(true); setOrbState('speaking'); };
-    u.onend = () => { isSpeakingRef.current = false; setIsSpeaking(false); setOrbState('idle'); };
-    u.onerror = () => { isSpeakingRef.current = false; setIsSpeaking(false); setOrbState('idle'); };
-    window.speechSynthesis.speak(u);
+    try {
+      setOrbState('speaking');
+      isSpeakingRef.current = true;
+      setIsSpeaking(true);
+      const chunks = splitChunks(clean, 400);
+      for (const ch of chunks) {
+        if (!isSpeakingRef.current) break;
+        stopCtrlRef.current = new AbortController();
+        const res = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + evid, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'xi-api-key': ek },
+          body: JSON.stringify({
+            text: ch, model_id: 'eleven_turbo_v2_5',
+            voice_settings: { stability: 0.48, similarity_boost: 0.88, style: 0.52, use_speaker_boost: true },
+          }),
+          signal: stopCtrlRef.current.signal,
+        });
+        if (!isSpeakingRef.current) return;
+        if (!res.ok) throw new Error('ElevenLabs ' + res.status);
+        const url = URL.createObjectURL(await res.blob());
+        if (!isSpeakingRef.current) { URL.revokeObjectURL(url); return; }
+        await playUrl(url);
+        URL.revokeObjectURL(url);
+      }
+      isSpeakingRef.current = false;
+      setIsSpeaking(false);
+      setOrbState('idle');
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
+      console.warn('ElevenLabs failed:', e.message);
+      toast('Voice error: ' + e.message, 'err');
+      isSpeakingRef.current = false;
+      setIsSpeaking(false);
+      setOrbState('idle');
+    }
   }, []);
 
   const stopSpeakFn = useCallback(() => {
