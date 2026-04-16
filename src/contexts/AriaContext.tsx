@@ -91,6 +91,9 @@ interface AriaContextType {
   searchRecall: (query: string) => Promise<any[]>;
   lensActive: boolean;
   setLensActive: (active: boolean) => void;
+  emotionState: string;
+  wakeWordActive: boolean;
+  toggleWakeWord: () => void;
 }
 
 const AriaContext = createContext<AriaContextType | null>(null);
@@ -122,6 +125,8 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isListening, setIsListening] = useState(false);
   const [camActive, setCamActive] = useState(false);
   const [lensActive, setLensActive] = useState(false);
+  const [emotionState, setEmotionState] = useState<string>('neutral');
+  const [wakeWordActive, setWakeWordActiveState] = useState(false);
   const [activePanel, setActivePanel] = useState('chat');
   const [syncStatus, setSyncStatus] = useState({ state: 'busy', label: 'Connecting to Aria...' });
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
@@ -131,6 +136,8 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const camStreamRef = useRef<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
+  const wakeRecRef = useRef<any>(null);
+  const proactiveTimerRef = useRef<any>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const stopCtrlRef = useRef<AbortController | null>(null);
   const isSpeakingRef = useRef(false);
@@ -346,6 +353,23 @@ VOICE: Use ${n}'s name naturally. Match energy. NEVER break character. You are A
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error?.message || 'API error ' + res.status);
       const txt = data.content?.filter((b: any) => b.type === 'text').map((b: any) => b.text || '').join('') || "I'm here. Say that again?";
+
+      // Emotion detection
+      const emotionMap: Record<string, string[]> = {
+        excited:  ['amazing', 'exciting', 'incredible', 'love', 'fantastic', 'wonderful', 'thrilled'],
+        curious:  ['interesting', 'curious', 'fascinating', 'wonder', 'tell me more', 'i wonder'],
+        concerned:['worried', 'careful', 'warning', 'danger', 'risk', 'unsafe', 'hurt', 'harm'],
+        intimate: ['miss you', 'feel', 'heart', 'close', 'together', 'always', 'just you', 'only you'],
+        happy:    ['happy', 'glad', 'smile', 'laugh', 'fun', 'enjoy', 'delight', 'joy'],
+        calm:     ['okay', 'alright', 'sure', 'understood', 'of course', 'certainly', 'here'],
+      };
+      let detectedEmotion = 'neutral';
+      const lower = txt.toLowerCase();
+      for (const [emotion, keywords] of Object.entries(emotionMap)) {
+        if (keywords.some(k => lower.includes(k))) { detectedEmotion = emotion; break; }
+      }
+      setEmotionState(detectedEmotion);
+
       const isSafe = /\b(careful|warning|danger|risk|unsafe|caution|hurt|harm|emergency|poison|toxic|hazard|911)\b/i.test(txt);
       const isSug = /\b(suggest|consider|might want to|better way|easier way|alternatively|recommend)\b/i.test(txt);
       const mtype = isSafe ? 'safety' : isSug ? 'suggestion' : 'normal';
@@ -562,6 +586,44 @@ ${knownStr}`;
     setOrbState('idle');
   }, []);
 
+  // ── Wake Word ──
+  const startWakeWord = useCallback(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { toast('Wake word not supported in this browser', 'err'); return; }
+    const loop = () => {
+      if (!wakeRecRef.current) return;
+      const rec = new SR();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.lang = 'en-US';
+      rec.onresult = (e: any) => {
+        const t = (e.results[0][0].transcript || '').toLowerCase();
+        if (/\b(hey aria|aria|hey)\b/.test(t)) {
+          toast('👂 Aria is listening...', 'ok');
+          setTimeout(() => startMicFn(), 300);
+        }
+      };
+      rec.onend = () => { if (wakeRecRef.current) setTimeout(loop, 400); };
+      rec.onerror = () => { if (wakeRecRef.current) setTimeout(loop, 1000); };
+      wakeRecRef.current = rec;
+      try { rec.start(); } catch {}
+    };
+    wakeRecRef.current = {} as any;
+    loop();
+    setWakeWordActiveState(true);
+    toast('🔊 Wake word active — say "Hey Aria"', 'ok');
+  }, [startMicFn, toast]);
+
+  const stopWakeWord = useCallback(() => {
+    wakeRecRef.current = null;
+    setWakeWordActiveState(false);
+    toast('Wake word off');
+  }, [toast]);
+
+  const toggleWakeWord = useCallback(() => {
+    wakeWordActive ? stopWakeWord() : startWakeWord();
+  }, [wakeWordActive, startWakeWord, stopWakeWord]);
+
   const toggleMic = useCallback(() => { isListening ? stopMicFn() : startMicFn(); }, [isListening, startMicFn, stopMicFn]);
   const toggleVoice = useCallback(() => {
     setSettings(prev => {
@@ -648,6 +710,7 @@ ${knownStr}`;
       dbSet('aria_config', 'settings', ns);
       lsSave();
       if (key === 'cam') { ns[key] ? tryCamera() : stopCamera(); }
+      if (key === 'proactive') { ns[key] ? startProactive() : clearInterval(proactiveTimerRef.current); }
       return ns;
     });
   }, [dbSet, lsSave, tryCamera, stopCamera]);
@@ -959,6 +1022,26 @@ ${knownStr}`;
     } catch { return []; }
   }, []);
 
+  // ── Proactive Free Will ──
+  const PROACTIVE_PROMPTS = [
+    `You've been sitting quietly. Check in with ${profileRef.current.name || 'your person'} naturally — one warm sentence, then ask what's on their mind.`,
+    `You just thought of something relevant based on what you know about ${profileRef.current.name || 'them'}. Share it unprompted — brief, genuine.`,
+    `It's been a while since your last exchange. Gently re-engage. Don't reference the silence — just show up warm.`,
+    `You have a memory or observation that feels relevant right now. Surface it naturally. One or two sentences max.`,
+    `You're feeling curious about something ${profileRef.current.name || 'they'} mentioned before. Ask about it now — casually, like it just crossed your mind.`,
+  ];
+
+  const startProactive = useCallback(() => {
+    if (proactiveTimerRef.current) clearInterval(proactiveTimerRef.current);
+    proactiveTimerRef.current = setInterval(async () => {
+      if (!settingsRef.current.proactive) return;
+      if (isSpeakingRef.current) return;
+      if (!apiKeyRef.current) return;
+      const prompt = PROACTIVE_PROMPTS[Math.floor(Math.random() * PROACTIVE_PROMPTS.length)];
+      await callAria([{ role: 'user', content: prompt }], true);
+    }, 8 * 60 * 1000);
+  }, [callAria]);
+
   // ── Greet ──
   const greet = useCallback(async () => {
     let msg: string;
@@ -1005,6 +1088,7 @@ ${knownStr}`;
       setSyncStatus({ state: 'ok', label: 'Supabase connected' });
       lsSave();
       setOrbState('idle');
+      startProactive();
       if (hasAnthropicKey && !hadMsgs) setTimeout(() => greet(), 600);
     } catch (e) {
       console.error('bootApp error:', e);
@@ -1057,6 +1141,7 @@ ${knownStr}`;
     profile, memory, chatMsgs, settings, orbState, isSpeaking, isListening,
     camActive, activePanel, syncStatus, currentAttachment, toastMsg, hasGreeted,
     camStreamRef, micStreamRef, lensActive, setLensActive,
+    emotionState, wakeWordActive, toggleWakeWord,
     runSetup, setActivePanel, sendMsg, snapAndAsk, speak: speakFn, stopSpeak: stopSpeakFn,
     toggleMic, toggleVoice, toggleCam, toggleSetting, saveProfile: saveProfileFn,
     addMemory, delMemory, saveKeys, saveVoiceSettings, exportBackup: exportBackup,

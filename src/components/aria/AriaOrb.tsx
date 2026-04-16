@@ -8,9 +8,11 @@ interface AriaOrbProps {
 
 export const AriaOrb: React.FC<AriaOrbProps> = ({ size = 120, className = '' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { orbState } = useAria();
+  const { orbState, emotionState } = useAria();
   const orbStateRef = useRef(orbState);
+  const emotionStateRef = useRef(emotionState);
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
+  useEffect(() => { emotionStateRef.current = emotionState; }, [emotionState]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -24,10 +26,17 @@ export const AriaOrb: React.FC<AriaOrbProps> = ({ size = 120, className = '' }) 
     let animId: number;
 
     const PALETTES: Record<string, any> = {
-      idle: { c0: '255,255,255', c1: '200,220,255', c2: '140,170,255', ga: 0.18, noise: 0.35 },
-      thinking: { c0: '180,200,255', c1: '120,150,255', c2: '80,100,220', ga: 0.30, noise: 0.55 },
-      speaking: { c0: '255,255,255', c1: '220,240,255', c2: '160,200,255', ga: 0.40, noise: 0.70 },
-      listening: { c0: '160,240,255', c1: '100,210,240', c2: '60,180,220', ga: 0.28, noise: 0.50 },
+      idle:      { c0: '255,255,255',   c1: '200,220,255', c2: '140,170,255', ga: 0.18, noise: 0.35 },
+      thinking:  { c0: '180,200,255',   c1: '120,150,255', c2: '80,100,220',  ga: 0.30, noise: 0.55 },
+      speaking:  { c0: '255,255,255',   c1: '220,240,255', c2: '160,200,255', ga: 0.40, noise: 0.70 },
+      listening: { c0: '160,240,255',   c1: '100,210,240', c2: '60,180,220',  ga: 0.28, noise: 0.50 },
+      excited:   { c0: '255,230,120',   c1: '255,180,60',  c2: '220,120,20',  ga: 0.42, noise: 0.75 },
+      curious:   { c0: '160,255,200',   c1: '80,220,160',  c2: '30,180,120',  ga: 0.32, noise: 0.55 },
+      concerned: { c0: '255,160,160',   c1: '220,80,80',   c2: '180,40,40',   ga: 0.38, noise: 0.60 },
+      intimate:  { c0: '255,180,220',   c1: '220,100,180', c2: '180,50,140',  ga: 0.45, noise: 0.65 },
+      happy:     { c0: '200,255,180',   c1: '140,230,120', c2: '80,200,80',   ga: 0.35, noise: 0.58 },
+      calm:      { c0: '210,210,255',   c1: '160,160,240', c2: '110,110,210', ga: 0.20, noise: 0.30 },
+      neutral:   { c0: '255,255,255',   c1: '200,220,255', c2: '140,170,255', ga: 0.18, noise: 0.35 },
     };
 
     const PARTICLES = Array.from({ length: 18 }, () => ({
@@ -47,7 +56,7 @@ export const AriaOrb: React.FC<AriaOrbProps> = ({ size = 120, className = '' }) 
 
     function draw() {
       t += 0.016;
-      const state = orbStateRef.current;
+      const state = orbStateRef.current !== 'idle' ? orbStateRef.current : (emotionStateRef.current || 'idle');
       if (state !== lastState) {
         currentPal = { ...targetPal };
         targetPal = { ...(PALETTES[state] || PALETTES.idle) };

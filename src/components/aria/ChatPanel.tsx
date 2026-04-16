@@ -5,7 +5,7 @@ export const ChatPanel = () => {
   const {
     chatMsgs, sendMsg, toggleMic, toggleVoice, snapAndAsk, toggleCam, toggleSetting,
     settings, isListening, isSpeaking, camActive, currentAttachment, setAttachment,
-    processFile, orbState, stopSpeak,
+    processFile, orbState, stopSpeak, toggleWakeWord, wakeWordActive,
   } = useAria();
   const [input, setInput] = useState('');
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -44,6 +44,10 @@ export const ChatPanel = () => {
             className={`w-8 h-8 rounded-lg border text-sm flex items-center justify-center transition-all ${
               camActive ? 'text-accent border-accent/35 bg-accent/10' : 'text-muted-foreground border-border bg-secondary/5'
             }`}>📷</button>
+          <button onClick={toggleWakeWord}
+            className={`w-8 h-8 rounded-lg border text-sm flex items-center justify-center transition-all ${
+              wakeWordActive ? 'text-aria-safe border-aria-safe/35 bg-aria-safe/10 animate-pulse' : 'text-muted-foreground border-border bg-secondary/5'
+            }`} title="Wake Word">👂</button>
         </div>
       </div>
 

@@ -11,6 +11,7 @@ import { OrbModePanel } from './OrbModePanel';
 import { SetupOverlay } from './SetupOverlay';
 import { LensModePanel } from './LensModePanel';
 import { WebIngestionPanel } from './WebIngestionPanel';
+import { FacePanel } from './FacePanel';
 
 const panels: Record<string, React.FC> = {
   chat: ChatPanel,
@@ -22,6 +23,7 @@ const panels: Record<string, React.FC> = {
   orb: OrbModePanel,
   lens: LensModePanel,
   web: WebIngestionPanel,
+  face: FacePanel,
 };
 
 export const AriaLayout = () => {
