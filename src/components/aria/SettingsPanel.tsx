@@ -86,7 +86,7 @@ export const SettingsPanel = () => {
           <Toggle k="voice" label="Voice Output" desc="Aria speaks responses" />
           <Toggle k="autoread" label="Auto-read Responses" desc="Read every reply automatically" />
           <Toggle k="mic" label="Voice Input (Mic)" desc="Hands-free conversation" />
-          <Toggle k="fallback" label="Browser Voice Fallback" desc="Use built-in voice if ElevenLabs unavailable" />
+          
         </div>
       </div>
 
