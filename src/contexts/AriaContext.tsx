@@ -172,7 +172,9 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [deepgramKey, setDeepgramKey] = useState('');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [vadActive, setVadActive] = useState(false);
+  const [deepgramLang, setDeepgramLang] = useState('en');
   const deepgramKeyRef = useRef('');
+  const deepgramLangRef = useRef('en');
   const deepgramSocketRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
@@ -649,8 +651,9 @@ ${knownStr}`;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       micStreamRef.current = stream;
 
+      const lang = deepgramLangRef.current || 'en';
       const socket = new WebSocket(
-        `wss://api.deepgram.com/v1/listen?model=nova-2&language=en&smart_format=true&interim_results=true&endpointing=400`,
+        `wss://api.deepgram.com/v1/listen?model=nova-2&language=${encodeURIComponent(lang)}&smart_format=true&interim_results=true&endpointing=400`,
         ['token', dgKey]
       );
 
