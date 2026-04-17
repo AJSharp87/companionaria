@@ -128,6 +128,9 @@ interface AriaContextType {
   liveTranscript: string;
   vadActive: boolean;
   toggleVAD: () => void;
+  deepgramLang: string;
+  setDeepgramLang: (lang: string) => void;
+  saveDeepgramLang: (lang: string) => Promise<void>;
 }
 
 const AriaContext = createContext<AriaContextType | null>(null);
@@ -169,7 +172,9 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [deepgramKey, setDeepgramKey] = useState('');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [vadActive, setVadActive] = useState(false);
+  const [deepgramLang, setDeepgramLang] = useState('en');
   const deepgramKeyRef = useRef('');
+  const deepgramLangRef = useRef('en');
   const deepgramSocketRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
@@ -646,8 +651,9 @@ ${knownStr}`;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       micStreamRef.current = stream;
 
+      const lang = deepgramLangRef.current || 'en';
       const socket = new WebSocket(
-        `wss://api.deepgram.com/v1/listen?model=nova-2&language=en&smart_format=true&interim_results=true&endpointing=400`,
+        `wss://api.deepgram.com/v1/listen?model=nova-2&language=${encodeURIComponent(lang)}&smart_format=true&interim_results=true&endpointing=400`,
         ['token', dgKey]
       );
 
@@ -731,8 +737,9 @@ ${knownStr}`;
           try {
             const wavBuffer = float32ToWav(audio, 16000);
             const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+            const lang = deepgramLangRef.current || 'en';
             const res = await fetch(
-              'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true',
+              `https://api.deepgram.com/v1/listen?model=nova-2&language=${encodeURIComponent(lang)}&smart_format=true`,
               { method: 'POST', headers: { Authorization: 'Token ' + dgKey }, body: blob },
             );
             const data = await res.json();
@@ -780,6 +787,14 @@ ${knownStr}`;
     await dbSet('aria_config', 'deepgram_key', key);
     lsSave();
     toast('Deepgram key saved ✓', 'ok');
+  }, [dbSet, lsSave, toast]);
+
+  const saveDeepgramLang = useCallback(async (lang: string) => {
+    setDeepgramLang(lang);
+    deepgramLangRef.current = lang;
+    await dbSet('aria_config', 'deepgram_lang', lang);
+    lsSave();
+    toast('Language set: ' + lang, 'ok');
   }, [dbSet, lsSave, toast]);
 
   // ── Wake Word ──
@@ -1277,6 +1292,8 @@ ${knownStr}`;
       if (storedVoiceId) { setElevenVoiceId(storedVoiceId); elevenVoiceIdRef.current = storedVoiceId; }
       const storedDgKey = await dbGet('aria_config', 'deepgram_key');
       if (storedDgKey) { setDeepgramKey(storedDgKey); deepgramKeyRef.current = storedDgKey; }
+      const storedDgLang = await dbGet('aria_config', 'deepgram_lang');
+      if (storedDgLang) { setDeepgramLang(storedDgLang); deepgramLangRef.current = storedDgLang; }
       if (storedSet) { setSettings(prev => ({ ...prev, ...storedSet })); settingsRef.current = { ...DEFAULT_SETTINGS, ...storedSet }; }
       const newMem: Record<string, any> = {};
       (memRows as any[]).forEach(r => { try { newMem[r.id] = JSON.parse(r.value); } catch { newMem[r.id] = r.value; } });
@@ -1349,6 +1366,7 @@ ${knownStr}`;
     emotionState, wakeWordActive, toggleWakeWord,
     deepgramKey, setDeepgramKey, saveDeepgramKey, liveTranscript,
     vadActive, toggleVAD,
+    deepgramLang, setDeepgramLang, saveDeepgramLang,
     runSetup, setActivePanel, sendMsg, snapAndAsk, speak: speakFn, stopSpeak: stopSpeakFn,
     toggleMic, toggleVoice, toggleCam, toggleSetting, saveProfile: saveProfileFn,
     addMemory, delMemory, saveKeys, saveVoiceSettings, exportBackup: exportBackup,
