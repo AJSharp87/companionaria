@@ -105,6 +105,41 @@ export const SettingsPanel = () => {
             <p className="text-[10px] text-muted-foreground/60 mt-1.5">
               When set, the mic uses Deepgram Nova-2 streaming. VAD also routes through Deepgram.
             </p>
+
+            <label className="text-[9px] tracking-[0.18em] uppercase text-secondary mb-1 mt-3 block">
+              Transcription Language
+            </label>
+            <select
+              value={deepgramLang}
+              onChange={e => saveDeepgramLang(e.target.value)}
+              className="w-full px-3 py-2.5 bg-background/50 border border-secondary/[0.18] rounded-lg text-foreground text-sm outline-none focus:border-secondary/45"
+            >
+              <option value="en">English (en)</option>
+              <option value="en-US">English — US (en-US)</option>
+              <option value="en-GB">English — UK (en-GB)</option>
+              <option value="es">Spanish (es)</option>
+              <option value="es-419">Spanish — Latin America (es-419)</option>
+              <option value="fr">French (fr)</option>
+              <option value="fr-CA">French — Canada (fr-CA)</option>
+              <option value="de">German (de)</option>
+              <option value="it">Italian (it)</option>
+              <option value="pt">Portuguese (pt)</option>
+              <option value="pt-BR">Portuguese — Brazil (pt-BR)</option>
+              <option value="nl">Dutch (nl)</option>
+              <option value="hi">Hindi (hi)</option>
+              <option value="ja">Japanese (ja)</option>
+              <option value="ko">Korean (ko)</option>
+              <option value="zh">Chinese (zh)</option>
+              <option value="ru">Russian (ru)</option>
+              <option value="pl">Polish (pl)</option>
+              <option value="tr">Turkish (tr)</option>
+              <option value="sv">Swedish (sv)</option>
+              <option value="uk">Ukrainian (uk)</option>
+              <option value="multi">Multilingual (auto-detect)</option>
+            </select>
+            <p className="text-[10px] text-muted-foreground/60 mt-1.5">
+              Applies to both streaming mic and VAD batched transcription.
+            </p>
           </div>
         </div>
       </div>
