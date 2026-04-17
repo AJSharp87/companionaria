@@ -183,6 +183,12 @@ export const FacePanel = () => {
                   ))}
                 </div>
               )}
+              {faces.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-[10px] tracking-wider uppercase">
+                  <span className="text-muted-foreground/60">Last shift: <span className="text-aria-lav">{lastExpressionRef.current || '—'}</span></span>
+                  <span className="text-accent/60">Aria reacts on change</span>
+                </div>
+              )}
             </div>
           </div>
         )}
