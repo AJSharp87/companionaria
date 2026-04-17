@@ -5,7 +5,7 @@ export const SettingsPanel = () => {
   const {
     apiKey, sbUrl, sbAnon, elevenKey, elevenVoiceId, settings,
     toggleSetting, saveKeys, saveVoiceSettings, nukeAll, speak, stopSpeak,
-    deepgramKey, saveDeepgramKey,
+    deepgramKey, saveDeepgramKey, deepgramLang, saveDeepgramLang,
   } = useAria();
   const [anth, setAnth] = useState(apiKey);
   const [sUrl, setSUrl] = useState(sbUrl);
