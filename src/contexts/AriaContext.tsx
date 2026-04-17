@@ -687,8 +687,10 @@ ${knownStr}`;
       socket.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
+          if (data.type === 'Metadata') { console.log('[Deepgram] Metadata received'); return; }
           const transcript = data?.channel?.alternatives?.[0]?.transcript || '';
           const isFinal = data?.is_final;
+          console.log('[Deepgram] msg → transcript:', JSON.stringify(transcript), 'final:', isFinal);
           if (transcript) {
             setLiveTranscript(transcript);
             if (isFinal && transcript.trim()) {
@@ -700,15 +702,19 @@ ${knownStr}`;
               callAria(apiMsgs, false, transcript);
             }
           }
-        } catch {}
+        } catch (err) { console.warn('[Deepgram] parse error', err); }
       };
 
-      socket.onerror = () => {
-        toast('Deepgram connection error', 'err');
+      socket.onerror = (ev) => {
+        console.error('[Deepgram] WebSocket ERROR', ev);
+        toast('Deepgram connection error — check key/network', 'err');
         stopDeepgramMic();
       };
 
-      socket.onclose = () => {
+      socket.onclose = (ev) => {
+        console.log('[Deepgram] WebSocket CLOSED', ev.code, ev.reason);
+        if (ev.code === 1006) toast('Deepgram closed unexpectedly (1006) — likely invalid key', 'err');
+        else if (ev.code === 4001 || ev.code === 4008) toast('Deepgram auth failed — check API key', 'err');
         setIsListening(false);
         setOrbState('idle');
         setLiveTranscript('');
@@ -716,6 +722,7 @@ ${knownStr}`;
 
       deepgramSocketRef.current = socket;
     } catch (e: any) {
+      console.error('[Deepgram] startDeepgramMic threw', e);
       toast('Mic access error: ' + e.message, 'err');
       setIsListening(false);
     }
