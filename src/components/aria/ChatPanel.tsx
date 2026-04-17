@@ -14,7 +14,15 @@ export const ChatPanel = () => {
 
   useEffect(() => {
     if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-  }, [chatMsgs]);
+  }, [chatMsgs, liveTranscript, orbState]);
+
+  // Force scroll to bottom on initial mount (after layout paints)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+    }, 50);
+    return () => clearTimeout(t);
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim() && !currentAttachment) return;
