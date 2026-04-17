@@ -1,6 +1,34 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+// ── Helper: float32 PCM → WAV ArrayBuffer ──
+function float32ToWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, samples.length * 2, true);
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return buffer;
+}
+
 // ── Types ──
 export interface ChatMsg { role: string; content: string; type?: string; }
 export interface Attachment { type: 'image' | 'text'; name: string; data?: string; mimeType?: string; content?: string; }
@@ -94,6 +122,12 @@ interface AriaContextType {
   emotionState: string;
   wakeWordActive: boolean;
   toggleWakeWord: () => void;
+  deepgramKey: string;
+  setDeepgramKey: (k: string) => void;
+  saveDeepgramKey: (k: string) => Promise<void>;
+  liveTranscript: string;
+  vadActive: boolean;
+  toggleVAD: () => void;
 }
 
 const AriaContext = createContext<AriaContextType | null>(null);
@@ -132,6 +166,14 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: string } | null>(null);
   const [hasGreeted, setHasGreeted] = useState(false);
+  const [deepgramKey, setDeepgramKey] = useState('');
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [vadActive, setVadActive] = useState(false);
+  const deepgramKeyRef = useRef('');
+  const deepgramSocketRef = useRef<WebSocket | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const vadRef = useRef<any>(null);
 
   const camStreamRef = useRef<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
