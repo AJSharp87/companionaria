@@ -6,6 +6,7 @@ export const ChatPanel = () => {
     chatMsgs, sendMsg, toggleMic, toggleVoice, snapAndAsk, toggleCam, toggleSetting,
     settings, isListening, isSpeaking, camActive, currentAttachment, setAttachment,
     processFile, orbState, stopSpeak, toggleWakeWord, wakeWordActive,
+    liveTranscript, toggleVAD, vadActive,
   } = useAria();
   const [input, setInput] = useState('');
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -48,6 +49,10 @@ export const ChatPanel = () => {
             className={`w-8 h-8 rounded-lg border text-sm flex items-center justify-center transition-all ${
               wakeWordActive ? 'text-aria-safe border-aria-safe/35 bg-aria-safe/10 animate-pulse' : 'text-muted-foreground border-border bg-secondary/5'
             }`} title="Wake Word">👂</button>
+          <button onClick={toggleVAD}
+            className={`w-8 h-8 rounded-lg border text-sm flex items-center justify-center transition-all ${
+              vadActive ? 'text-accent border-accent/35 bg-accent/10 animate-pulse' : 'text-muted-foreground border-border bg-secondary/5'
+            }`} title="Voice Activity Detection">🫀</button>
         </div>
       </div>
 
@@ -134,12 +139,14 @@ export const ChatPanel = () => {
                 : 'border-accent/20 bg-accent/[0.04] text-accent/50'
             }`}>🎤</button>
           <textarea
-            value={input}
-            onChange={e => setInput(e.target.value)}
+            value={liveTranscript || input}
+            onChange={e => { if (!liveTranscript) setInput(e.target.value); }}
             onKeyDown={handleKey}
             placeholder="Speak to Aria..."
             rows={1}
-            className="flex-1 bg-card/90 border border-secondary/[0.18] rounded-xl px-3.5 py-3 text-foreground aria-serif text-[15px] font-light resize-none outline-none min-h-[46px] max-h-[130px] leading-relaxed transition-colors focus:border-secondary/40 focus:shadow-[0_0_0_3px_rgba(192,132,252,0.05)] placeholder:text-muted-foreground/20 placeholder:italic"
+            className={`flex-1 bg-card/90 border rounded-xl px-3.5 py-3 text-foreground aria-serif text-[15px] font-light resize-none outline-none min-h-[46px] max-h-[130px] leading-relaxed transition-colors focus:shadow-[0_0_0_3px_rgba(192,132,252,0.05)] placeholder:text-muted-foreground/20 placeholder:italic ${
+              liveTranscript ? 'border-accent/60 shadow-[0_0_0_3px_rgba(165,243,252,0.08)]' : 'border-secondary/[0.18] focus:border-secondary/40'
+            }`}
             onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
           />
           <button onClick={() => fileRef.current?.click()}

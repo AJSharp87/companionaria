@@ -1,6 +1,34 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+// ── Helper: float32 PCM → WAV ArrayBuffer ──
+function float32ToWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, samples.length * 2, true);
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return buffer;
+}
+
 // ── Types ──
 export interface ChatMsg { role: string; content: string; type?: string; }
 export interface Attachment { type: 'image' | 'text'; name: string; data?: string; mimeType?: string; content?: string; }
@@ -94,6 +122,12 @@ interface AriaContextType {
   emotionState: string;
   wakeWordActive: boolean;
   toggleWakeWord: () => void;
+  deepgramKey: string;
+  setDeepgramKey: (k: string) => void;
+  saveDeepgramKey: (k: string) => Promise<void>;
+  liveTranscript: string;
+  vadActive: boolean;
+  toggleVAD: () => void;
 }
 
 const AriaContext = createContext<AriaContextType | null>(null);
@@ -132,6 +166,14 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: string } | null>(null);
   const [hasGreeted, setHasGreeted] = useState(false);
+  const [deepgramKey, setDeepgramKey] = useState('');
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [vadActive, setVadActive] = useState(false);
+  const deepgramKeyRef = useRef('');
+  const deepgramSocketRef = useRef<WebSocket | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const vadRef = useRef<any>(null);
 
   const camStreamRef = useRef<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -574,6 +616,172 @@ ${knownStr}`;
     setOrbState('idle');
   }, []);
 
+  // ── Deepgram Real-Time Transcription ──
+  const stopDeepgramMic = useCallback(() => {
+    if (deepgramSocketRef.current) {
+      try { deepgramSocketRef.current.close(); } catch {}
+      deepgramSocketRef.current = null;
+    }
+    if (processorRef.current) {
+      try { processorRef.current.disconnect(); } catch {}
+      processorRef.current = null;
+    }
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch {}
+      audioContextRef.current = null;
+    }
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach(t => t.stop());
+      micStreamRef.current = null;
+    }
+    setIsListening(false);
+    setLiveTranscript('');
+    setOrbState('idle');
+  }, []);
+
+  const startDeepgramMic = useCallback(async () => {
+    const dgKey = deepgramKeyRef.current;
+    if (!dgKey) { startMicFn(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+
+      const socket = new WebSocket(
+        `wss://api.deepgram.com/v1/listen?model=nova-2&language=en&smart_format=true&interim_results=true&endpointing=400`,
+        ['token', dgKey]
+      );
+
+      socket.onopen = () => {
+        setIsListening(true);
+        setOrbState('listening');
+        toast('🎤 Deepgram listening...', 'ok');
+
+        const audioCtx = new AudioContext({ sampleRate: 16000 });
+        audioContextRef.current = audioCtx;
+        const source = audioCtx.createMediaStreamSource(stream);
+        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+        processorRef.current = processor;
+
+        processor.onaudioprocess = (e) => {
+          if (socket.readyState !== WebSocket.OPEN) return;
+          const input = e.inputBuffer.getChannelData(0);
+          const pcm = new Int16Array(input.length);
+          for (let i = 0; i < input.length; i++) {
+            pcm[i] = Math.max(-32768, Math.min(32767, input[i] * 32768));
+          }
+          socket.send(pcm.buffer);
+        };
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+      };
+
+      socket.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          const transcript = data?.channel?.alternatives?.[0]?.transcript || '';
+          const isFinal = data?.is_final;
+          if (transcript) {
+            setLiveTranscript(transcript);
+            if (isFinal && transcript.trim()) {
+              setLiveTranscript('');
+              setChatMsgs(prev => [...prev, { role: 'user', content: transcript }]);
+              saveMsg('user', transcript);
+              const apiMsgs = [...chatMsgsRef.current, { role: 'user', content: transcript }]
+                .slice(-40).map(m => ({ role: m.role, content: m.content }));
+              callAria(apiMsgs, false, transcript);
+            }
+          }
+        } catch {}
+      };
+
+      socket.onerror = () => {
+        toast('Deepgram connection error', 'err');
+        stopDeepgramMic();
+      };
+
+      socket.onclose = () => {
+        setIsListening(false);
+        setOrbState('idle');
+        setLiveTranscript('');
+      };
+
+      deepgramSocketRef.current = socket;
+    } catch (e: any) {
+      toast('Mic access error: ' + e.message, 'err');
+      setIsListening(false);
+    }
+  }, [startMicFn, callAria, saveMsg, toast, stopDeepgramMic]);
+
+  // ── Voice Activity Detection (VAD) ──
+  const startVAD = useCallback(async () => {
+    try {
+      const { MicVAD } = await import('@ricky0123/vad-web');
+      const vad = await MicVAD.new({
+        onSpeechStart: () => {
+          setOrbState('listening');
+          toast('🎙 Detected voice...', '');
+        },
+        onSpeechEnd: async (audio: Float32Array) => {
+          const dgKey = deepgramKeyRef.current;
+          if (!dgKey) {
+            startMicFn();
+            return;
+          }
+          setOrbState('thinking');
+          try {
+            const wavBuffer = float32ToWav(audio, 16000);
+            const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+            const res = await fetch(
+              'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true',
+              { method: 'POST', headers: { Authorization: 'Token ' + dgKey }, body: blob },
+            );
+            const data = await res.json();
+            const transcript = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
+            if (transcript.trim()) {
+              setChatMsgs(prev => [...prev, { role: 'user', content: transcript }]);
+              saveMsg('user', transcript);
+              const apiMsgs = [...chatMsgsRef.current, { role: 'user', content: transcript }]
+                .slice(-40).map(m => ({ role: m.role, content: m.content }));
+              await callAria(apiMsgs, false, transcript);
+            }
+          } catch (e: any) {
+            toast('VAD transcription error: ' + e.message, 'err');
+          }
+          setOrbState('idle');
+        },
+        onVADMisfire: () => setOrbState('idle'),
+      });
+      await vad.start();
+      vadRef.current = vad;
+      setVadActive(true);
+      toast('👂 VAD active — speak naturally anytime', 'ok');
+    } catch (e: any) {
+      toast('VAD failed: ' + e.message, 'err');
+    }
+  }, [startMicFn, callAria, saveMsg, toast]);
+
+  const stopVAD = useCallback(() => {
+    if (vadRef.current) {
+      try { vadRef.current.destroy(); } catch {}
+      vadRef.current = null;
+    }
+    setVadActive(false);
+    setOrbState('idle');
+    toast('VAD stopped');
+  }, [toast]);
+
+  const toggleVAD = useCallback(() => {
+    vadActive ? stopVAD() : startVAD();
+  }, [vadActive, startVAD, stopVAD]);
+
+  const saveDeepgramKey = useCallback(async (key: string) => {
+    setDeepgramKey(key);
+    deepgramKeyRef.current = key;
+    await dbSet('aria_config', 'deepgram_key', key);
+    lsSave();
+    toast('Deepgram key saved ✓', 'ok');
+  }, [dbSet, lsSave, toast]);
+
   // ── Wake Word ──
   const startWakeWord = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -612,7 +820,14 @@ ${knownStr}`;
     wakeWordActive ? stopWakeWord() : startWakeWord();
   }, [wakeWordActive, startWakeWord, stopWakeWord]);
 
-  const toggleMic = useCallback(() => { isListening ? stopMicFn() : startMicFn(); }, [isListening, startMicFn, stopMicFn]);
+  const toggleMic = useCallback(() => {
+    if (isListening) {
+      deepgramKeyRef.current ? stopDeepgramMic() : stopMicFn();
+    } else {
+      deepgramKeyRef.current ? startDeepgramMic() : startMicFn();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isListening, startMicFn, stopMicFn]);
   const toggleVoice = useCallback(() => {
     setSettings(prev => {
       const ns = { ...prev, voice: !prev.voice };
@@ -1060,6 +1275,8 @@ ${knownStr}`;
       if (storedKey) { setApiKey(storedKey); apiKeyRef.current = storedKey; }
       if (storedEleven) { setElevenKey(storedEleven); elevenKeyRef.current = storedEleven; }
       if (storedVoiceId) { setElevenVoiceId(storedVoiceId); elevenVoiceIdRef.current = storedVoiceId; }
+      const storedDgKey = await dbGet('aria_config', 'deepgram_key');
+      if (storedDgKey) { setDeepgramKey(storedDgKey); deepgramKeyRef.current = storedDgKey; }
       if (storedSet) { setSettings(prev => ({ ...prev, ...storedSet })); settingsRef.current = { ...DEFAULT_SETTINGS, ...storedSet }; }
       const newMem: Record<string, any> = {};
       (memRows as any[]).forEach(r => { try { newMem[r.id] = JSON.parse(r.value); } catch { newMem[r.id] = r.value; } });
@@ -1130,6 +1347,8 @@ ${knownStr}`;
     camActive, activePanel, syncStatus, currentAttachment, toastMsg, hasGreeted,
     camStreamRef, micStreamRef, lensActive, setLensActive,
     emotionState, wakeWordActive, toggleWakeWord,
+    deepgramKey, setDeepgramKey, saveDeepgramKey, liveTranscript,
+    vadActive, toggleVAD,
     runSetup, setActivePanel, sendMsg, snapAndAsk, speak: speakFn, stopSpeak: stopSpeakFn,
     toggleMic, toggleVoice, toggleCam, toggleSetting, saveProfile: saveProfileFn,
     addMemory, delMemory, saveKeys, saveVoiceSettings, exportBackup: exportBackup,

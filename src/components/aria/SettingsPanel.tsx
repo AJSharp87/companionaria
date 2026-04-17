@@ -5,16 +5,20 @@ export const SettingsPanel = () => {
   const {
     apiKey, sbUrl, sbAnon, elevenKey, elevenVoiceId, settings,
     toggleSetting, saveKeys, saveVoiceSettings, nukeAll, speak, stopSpeak,
+    deepgramKey, saveDeepgramKey,
   } = useAria();
   const [anth, setAnth] = useState(apiKey);
   const [sUrl, setSUrl] = useState(sbUrl);
   const [sAnon, setSAnon] = useState(sbAnon);
   const [elKey, setElKey] = useState(elevenKey);
   const [elVid, setElVid] = useState(elevenVoiceId);
+  const [dgKey, setDgKey] = useState(deepgramKey);
   const [keyMsg, setKeyMsg] = useState('');
 
-  useEffect(() => { setAnth(apiKey); setSUrl(sbUrl); setSAnon(sbAnon); setElKey(elevenKey); setElVid(elevenVoiceId); },
-    [apiKey, sbUrl, sbAnon, elevenKey, elevenVoiceId]);
+  useEffect(() => {
+    setAnth(apiKey); setSUrl(sbUrl); setSAnon(sbAnon);
+    setElKey(elevenKey); setElVid(elevenVoiceId); setDgKey(deepgramKey);
+  }, [apiKey, sbUrl, sbAnon, elevenKey, elevenVoiceId, deepgramKey]);
 
   const Toggle = ({ k, label, desc }: { k: keyof typeof settings; label: string; desc: string }) => (
     <div className="flex items-center justify-between py-2 border-b border-secondary/5 last:border-none">
@@ -86,7 +90,22 @@ export const SettingsPanel = () => {
           <Toggle k="voice" label="Voice Output" desc="Aria speaks responses" />
           <Toggle k="autoread" label="Auto-read Responses" desc="Read every reply automatically" />
           <Toggle k="mic" label="Voice Input (Mic)" desc="Hands-free conversation" />
-          
+
+          <div className="pt-3 mt-2 border-t border-secondary/10">
+            <label className="text-[9px] tracking-[0.18em] uppercase text-secondary mb-1 block">
+              Deepgram API Key (optional — real-time transcription)
+            </label>
+            <input
+              value={dgKey}
+              onChange={e => setDgKey(e.target.value)}
+              onBlur={() => { if (dgKey !== deepgramKey) saveDeepgramKey(dgKey); }}
+              placeholder="dg_..."
+              className="w-full px-3 py-2.5 bg-background/50 border border-secondary/[0.18] rounded-lg text-foreground text-sm font-mono outline-none focus:border-secondary/45 placeholder:text-muted-foreground/20"
+            />
+            <p className="text-[10px] text-muted-foreground/60 mt-1.5">
+              When set, the mic uses Deepgram Nova-2 streaming. VAD also routes through Deepgram.
+            </p>
+          </div>
         </div>
       </div>
 
