@@ -128,6 +128,9 @@ interface AriaContextType {
   liveTranscript: string;
   vadActive: boolean;
   toggleVAD: () => void;
+  deepgramLang: string;
+  setDeepgramLang: (lang: string) => void;
+  saveDeepgramLang: (lang: string) => Promise<void>;
 }
 
 const AriaContext = createContext<AriaContextType | null>(null);
