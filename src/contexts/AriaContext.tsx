@@ -646,18 +646,21 @@ ${knownStr}`;
 
   const startDeepgramMic = useCallback(async () => {
     const dgKey = deepgramKeyRef.current;
-    if (!dgKey) { startMicFn(); return; }
+    console.log('[Deepgram] startDeepgramMic called, key present:', !!dgKey, 'len:', dgKey?.length);
+    if (!dgKey) { console.log('[Deepgram] No key, falling back to Web Speech'); startMicFn(); return; }
     try {
+      console.log('[Deepgram] Requesting mic permission...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('[Deepgram] Mic granted, opening WebSocket...');
       micStreamRef.current = stream;
 
       const lang = deepgramLangRef.current || 'en';
-      const socket = new WebSocket(
-        `wss://api.deepgram.com/v1/listen?model=nova-2&language=${encodeURIComponent(lang)}&smart_format=true&interim_results=true&endpointing=400`,
-        ['token', dgKey]
-      );
+      const url = `wss://api.deepgram.com/v1/listen?model=nova-2&language=${encodeURIComponent(lang)}&smart_format=true&interim_results=true&endpointing=400&encoding=linear16&sample_rate=16000&channels=1`;
+      console.log('[Deepgram] WebSocket URL:', url);
+      const socket = new WebSocket(url, ['token', dgKey]);
 
       socket.onopen = () => {
+        console.log('[Deepgram] WebSocket OPEN');
         setIsListening(true);
         setOrbState('listening');
         toast('🎤 Deepgram listening...', 'ok');
