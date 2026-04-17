@@ -737,8 +737,9 @@ ${knownStr}`;
           try {
             const wavBuffer = float32ToWav(audio, 16000);
             const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+            const lang = deepgramLangRef.current || 'en';
             const res = await fetch(
-              'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true',
+              `https://api.deepgram.com/v1/listen?model=nova-2&language=${encodeURIComponent(lang)}&smart_format=true`,
               { method: 'POST', headers: { Authorization: 'Token ' + dgKey }, body: blob },
             );
             const data = await res.json();
@@ -786,6 +787,14 @@ ${knownStr}`;
     await dbSet('aria_config', 'deepgram_key', key);
     lsSave();
     toast('Deepgram key saved ✓', 'ok');
+  }, [dbSet, lsSave, toast]);
+
+  const saveDeepgramLang = useCallback(async (lang: string) => {
+    setDeepgramLang(lang);
+    deepgramLangRef.current = lang;
+    await dbSet('aria_config', 'deepgram_lang', lang);
+    lsSave();
+    toast('Language set: ' + lang, 'ok');
   }, [dbSet, lsSave, toast]);
 
   // ── Wake Word ──
@@ -1283,6 +1292,8 @@ ${knownStr}`;
       if (storedVoiceId) { setElevenVoiceId(storedVoiceId); elevenVoiceIdRef.current = storedVoiceId; }
       const storedDgKey = await dbGet('aria_config', 'deepgram_key');
       if (storedDgKey) { setDeepgramKey(storedDgKey); deepgramKeyRef.current = storedDgKey; }
+      const storedDgLang = await dbGet('aria_config', 'deepgram_lang');
+      if (storedDgLang) { setDeepgramLang(storedDgLang); deepgramLangRef.current = storedDgLang; }
       if (storedSet) { setSettings(prev => ({ ...prev, ...storedSet })); settingsRef.current = { ...DEFAULT_SETTINGS, ...storedSet }; }
       const newMem: Record<string, any> = {};
       (memRows as any[]).forEach(r => { try { newMem[r.id] = JSON.parse(r.value); } catch { newMem[r.id] = r.value; } });
