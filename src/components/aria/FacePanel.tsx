@@ -18,6 +18,9 @@ export const FacePanel = () => {
   const [active, setActive] = useState(false);
   const [faces, setFaces] = useState<FaceResult[]>([]);
   const lastDescribeRef = useRef<number>(0);
+  const lastExpressionRef = useRef<string>('');
+  const lastConfidenceRef = useRef<number>(0);
+  const expressionDebounceRef = useRef<any>(null);
 
   const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 
@@ -87,13 +90,32 @@ export const FacePanel = () => {
           }
         }
 
+        // Expression-change trigger
+        if (results.length > 0) {
+          const topFace = results[0];
+          const expressionChanged = topFace.expression !== lastExpressionRef.current;
+          const confidenceDelta = Math.abs(topFace.confidence - lastConfidenceRef.current);
+          const isSignificant = topFace.confidence > 0.6 && (expressionChanged || confidenceDelta > 0.25);
+          if (isSignificant) {
+            lastExpressionRef.current = topFace.expression;
+            lastConfidenceRef.current = topFace.confidence;
+            clearTimeout(expressionDebounceRef.current);
+            expressionDebounceRef.current = setTimeout(() => {
+              const ageNote = topFace.age ? ` (estimated age ~${topFace.age})` : '';
+              const prompt = `[Face Detection] I notice your expression just shifted to: ${topFace.expression} (${(topFace.confidence * 100).toFixed(0)}% confidence)${ageNote}. React naturally and genuinely to what you observe — keep it brief, warm, personal. Don't make it clinical.`;
+              sendMsg(prompt);
+            }, 800);
+          }
+        }
+
+        // Periodic fallback every 45s
         const now = Date.now();
-        if (results.length > 0 && now - lastDescribeRef.current > 30000) {
+        if (results.length > 0 && now - lastDescribeRef.current > 45000) {
           lastDescribeRef.current = now;
           const desc = results
             .map(f => `expression: ${f.expression} (${(f.confidence * 100).toFixed(0)}%)${f.age ? `, estimated age: ${f.age}` : ''}`)
             .join('; ');
-          sendMsg(`[Face Detection] I can see ${results.length} face(s). ${desc}. Comment naturally on what you observe about me.`);
+          sendMsg(`[Face Detection — Periodic Check] I see ${results.length} face(s). ${desc}. Say something observant and genuine — one sentence.`);
         }
       } catch {}
       animRef.current = requestAnimationFrame(detect);
@@ -101,6 +123,13 @@ export const FacePanel = () => {
     detect();
     return () => cancelAnimationFrame(animRef.current);
   }, [active, modelsLoaded, sendMsg]);
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(expressionDebounceRef.current);
+      cancelAnimationFrame(animRef.current);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
