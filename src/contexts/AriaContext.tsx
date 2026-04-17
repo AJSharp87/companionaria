@@ -1366,6 +1366,7 @@ ${knownStr}`;
     emotionState, wakeWordActive, toggleWakeWord,
     deepgramKey, setDeepgramKey, saveDeepgramKey, liveTranscript,
     vadActive, toggleVAD,
+    deepgramLang, setDeepgramLang, saveDeepgramLang,
     runSetup, setActivePanel, sendMsg, snapAndAsk, speak: speakFn, stopSpeak: stopSpeakFn,
     toggleMic, toggleVoice, toggleCam, toggleSetting, saveProfile: saveProfileFn,
     addMemory, delMemory, saveKeys, saveVoiceSettings, exportBackup: exportBackup,
