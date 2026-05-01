@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useAria } from '@/contexts/AriaContext';
 
+const VOICE_PRESETS: { id: string; label: string; voiceId: string }[] = [
+  { id: 'sadie', label: '★ Sadie — Calm, gritty & expressive', voiceId: '9BWtsMINqrJLrRacOk9x' },
+  { id: 'aria', label: 'Aria — Deep, rich, seductive', voiceId: '9BWtsMINqrJLrRacOk9x' },
+  { id: 'sarah', label: 'Sarah — Warm, natural, conversational', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
+  { id: 'charlotte', label: 'Charlotte — Confident, smooth, rich', voiceId: 'XB0fDUnXU5powFXDhCwa' },
+  { id: 'freya', label: 'Freya — Warm, expressive, fluid', voiceId: 'jsCqWAovK2LkecY7zXl4' },
+  { id: 'lily', label: 'Lily — Soft, warm, deeply personal', voiceId: 'pFZP5JQG7iQjIQuC4Bku' },
+  { id: 'jessica', label: 'Jessica — Energetic, bright, clear', voiceId: 'cgSgspJ2msm6clMCkdEW' },
+  { id: 'custom', label: 'Custom — paste Voice ID below', voiceId: '' },
+];
+
 export const SettingsPanel = () => {
   const {
     apiKey, sbUrl, sbAnon, elevenKey, elevenVoiceId, settings,
@@ -14,11 +25,23 @@ export const SettingsPanel = () => {
   const [elVid, setElVid] = useState(elevenVoiceId);
   const [dgKey, setDgKey] = useState(deepgramKey);
   const [keyMsg, setKeyMsg] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState('sadie');
 
   useEffect(() => {
     setAnth(apiKey); setSUrl(sbUrl); setSAnon(sbAnon);
     setElKey(elevenKey); setElVid(elevenVoiceId); setDgKey(deepgramKey);
+    // Detect current preset from voice ID
+    const match = VOICE_PRESETS.find(p => p.voiceId === elevenVoiceId && p.id !== 'custom');
+    setSelectedPreset(match ? match.id : 'custom');
   }, [apiKey, sbUrl, sbAnon, elevenKey, elevenVoiceId, deepgramKey]);
+
+  const handlePresetChange = (presetId: string) => {
+    setSelectedPreset(presetId);
+    const preset = VOICE_PRESETS.find(p => p.id === presetId);
+    if (preset && preset.voiceId) {
+      setElVid(preset.voiceId);
+    }
+  };
 
   const Toggle = ({ k, label, desc }: { k: keyof typeof settings; label: string; desc: string }) => (
     <div className="flex items-center justify-between py-2 border-b border-secondary/5 last:border-none">
@@ -75,10 +98,24 @@ export const SettingsPanel = () => {
               className="w-full px-3 py-2.5 bg-background/50 border border-secondary/[0.18] rounded-lg text-foreground text-sm font-mono outline-none focus:border-secondary/45 placeholder:text-muted-foreground/20" />
           </div>
           <div>
-            <label className="text-[9px] tracking-[0.18em] uppercase text-secondary mb-1 block">Voice ID</label>
-            <input value={elVid} onChange={e => setElVid(e.target.value)} placeholder="9BWtsMINqrJLrRacOk9x"
-              className="w-full px-3 py-2.5 bg-background/50 border border-secondary/[0.18] rounded-lg text-foreground text-sm font-mono outline-none focus:border-secondary/45 placeholder:text-muted-foreground/20" />
+            <label className="text-[9px] tracking-[0.18em] uppercase text-secondary mb-1 block">Voice Preset</label>
+            <select
+              value={selectedPreset}
+              onChange={e => handlePresetChange(e.target.value)}
+              className="w-full px-3 py-2.5 bg-background/50 border border-secondary/[0.18] rounded-lg text-foreground text-sm outline-none focus:border-secondary/45"
+            >
+              {VOICE_PRESETS.map(p => (
+                <option key={p.id} value={p.id}>{p.label}</option>
+              ))}
+            </select>
           </div>
+          {selectedPreset === 'custom' && (
+            <div>
+              <label className="text-[9px] tracking-[0.18em] uppercase text-secondary mb-1 block">Custom Voice ID</label>
+              <input value={elVid} onChange={e => setElVid(e.target.value)} placeholder="paste-voice-id-here"
+                className="w-full px-3 py-2.5 bg-background/50 border border-secondary/[0.18] rounded-lg text-foreground text-sm font-mono outline-none focus:border-secondary/45 placeholder:text-muted-foreground/20" />
+            </div>
+          )}
           <div className="flex gap-2">
             <button onClick={() => saveVoiceSettings(elKey, elVid)}
               className="flex-1 py-2.5 rounded-lg border border-accent/25 bg-accent/[0.06] text-accent text-xs tracking-wider uppercase">✓ Save</button>
@@ -90,6 +127,18 @@ export const SettingsPanel = () => {
           <Toggle k="voice" label="Voice Output" desc="Aria speaks responses" />
           <Toggle k="autoread" label="Auto-read Responses" desc="Read every reply automatically" />
           <Toggle k="mic" label="Voice Input (Mic)" desc="Hands-free conversation" />
+
+          {/* Sadie Voice Setup Info */}
+          {selectedPreset === 'sadie' && (
+            <div className="mt-2 p-3 bg-background/30 border border-aria-gold/15 rounded-lg">
+              <h4 className="text-[9px] tracking-[0.18em] uppercase text-aria-gold mb-2">★ Sadie — Voice Setup</h4>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                To use Sadie via ElevenLabs API: go to{' '}
+                <a href="https://elevenlabs.io" target="_blank" rel="noreferrer" className="text-secondary hover:underline">elevenlabs.io</a>
+                {' '}→ Voice Library → search "Sadie" → Add to your voices → copy the Voice ID. Paste your API key above and save.
+              </p>
+            </div>
+          )}
 
           <div className="pt-3 mt-2 border-t border-secondary/10">
             <label className="text-[9px] tracking-[0.18em] uppercase text-secondary mb-1 block">
