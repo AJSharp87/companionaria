@@ -336,10 +336,23 @@ VOICE: Use ${n}'s name naturally. Match energy. NEVER break character. You are A
   // ── Save Message to Supabase ──
   const saveMsg = useCallback(async (role: string, content: string, mtype = 'normal') => {
     if (!dbRef.current) return;
-    try {
-      await dbRef.current.from('aria_messages').insert({
+    const doInsert = async (attempt = 0): Promise<void> => {
+      const { error } = await dbRef.current!.from('aria_messages').insert({
         role, content, msg_type: mtype, created_at: new Date().toISOString(),
       });
+      if (error) {
+        if (error.code === '23505' && attempt < 3) {
+          // Duplicate key — sequence out of sync, wait briefly and retry
+          console.warn(`[saveMsg] Duplicate key, retry ${attempt + 1}`);
+          await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+          return doInsert(attempt + 1);
+        }
+        console.warn('saveMsg error:', error.message);
+        return;
+      }
+    };
+    try {
+      await doInsert();
       const { data } = await dbRef.current.from('aria_messages').select('id').order('created_at', { ascending: true });
       if (data && data.length > 2000) {
         const ids = data.slice(0, data.length - 2000).map((r: any) => r.id);
@@ -529,7 +542,10 @@ ${knownStr}`;
       currentAudioRef.current = a;
       a.onended = () => { currentAudioRef.current = null; res(); };
       a.onerror = (e) => { currentAudioRef.current = null; rej(e); };
-      a.play().catch(rej);
+      a.play().catch((e) => {
+        currentAudioRef.current = null;
+        rej(e);
+      });
     });
   };
 
@@ -573,7 +589,18 @@ ${knownStr}`;
       setOrbState('idle');
     } catch (e: any) {
       if (e.name === 'AbortError') return;
+      const isGestureErr = e.message?.includes('user gesture') || e.message?.includes('interact');
       console.warn('ElevenLabs failed:', e.message);
+      if (isGestureErr && window.speechSynthesis) {
+        // Fallback to browser TTS when autoplay is blocked
+        console.log('[Voice] Falling back to browser TTS');
+        const utt = new SpeechSynthesisUtterance(clean);
+        utt.lang = 'en-US';
+        utt.onend = () => { isSpeakingRef.current = false; setIsSpeaking(false); setOrbState('idle'); };
+        utt.onerror = () => { isSpeakingRef.current = false; setIsSpeaking(false); setOrbState('idle'); };
+        window.speechSynthesis.speak(utt);
+        return;
+      }
       toast('Voice error: ' + e.message, 'err');
       isSpeakingRef.current = false;
       setIsSpeaking(false);
