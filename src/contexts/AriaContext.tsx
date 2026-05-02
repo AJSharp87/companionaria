@@ -589,7 +589,18 @@ ${knownStr}`;
       setOrbState('idle');
     } catch (e: any) {
       if (e.name === 'AbortError') return;
+      const isGestureErr = e.message?.includes('user gesture') || e.message?.includes('interact');
       console.warn('ElevenLabs failed:', e.message);
+      if (isGestureErr && window.speechSynthesis) {
+        // Fallback to browser TTS when autoplay is blocked
+        console.log('[Voice] Falling back to browser TTS');
+        const utt = new SpeechSynthesisUtterance(clean);
+        utt.lang = 'en-US';
+        utt.onend = () => { isSpeakingRef.current = false; setIsSpeaking(false); setOrbState('idle'); };
+        utt.onerror = () => { isSpeakingRef.current = false; setIsSpeaking(false); setOrbState('idle'); };
+        window.speechSynthesis.speak(utt);
+        return;
+      }
       toast('Voice error: ' + e.message, 'err');
       isSpeakingRef.current = false;
       setIsSpeaking(false);
