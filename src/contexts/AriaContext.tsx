@@ -542,7 +542,10 @@ ${knownStr}`;
       currentAudioRef.current = a;
       a.onended = () => { currentAudioRef.current = null; res(); };
       a.onerror = (e) => { currentAudioRef.current = null; rej(e); };
-      a.play().catch(rej);
+      a.play().catch((e) => {
+        currentAudioRef.current = null;
+        rej(e);
+      });
     });
   };
 
