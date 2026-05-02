@@ -1,0 +1,1 @@
+SELECT setval('aria_messages_id_seq', COALESCE((SELECT MAX(id) FROM aria_messages), 0) + 1, false);
