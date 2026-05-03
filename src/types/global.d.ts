@@ -1,7 +1,14 @@
 declare module '@vladmandic/face-api' {
-  const faceapi: any;
+  const faceapi: {
+    nets: any;
+    detectAllFaces: any;
+    TinyFaceDetectorOptions: any;
+    matchDimensions: any;
+    resizeResults: any;
+    draw: any;
+    [key: string]: any;
+  };
   export = faceapi;
-  export default faceapi;
 }
 
 declare global {
