@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAria } from '@/contexts/AriaContext';
+import { useAuth } from '@/hooks/useAuth';
 
 const VOICE_PRESETS: { id: string; label: string; voiceId: string }[] = [
   { id: 'sadie', label: '★ Sadie — Calm, gritty & expressive', voiceId: '9BWtsMINqrJLrRacOk9x' },
