@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAria } from '@/contexts/AriaContext';
+import { useAuth } from '@/hooks/useAuth';
 
 const VOICE_PRESETS: { id: string; label: string; voiceId: string }[] = [
   { id: 'sadie', label: '★ Sadie — Calm, gritty & expressive', voiceId: '9BWtsMINqrJLrRacOk9x' },
@@ -225,7 +226,21 @@ export const SettingsPanel = () => {
           className="w-full py-2.5 rounded-lg border border-destructive/25 bg-destructive/[0.06] text-destructive text-xs tracking-wider uppercase">
           Clear All Data & Reset Aria
         </button>
+
+        <SignOutButton />
       </div>
     </div>
+  );
+};
+
+const SignOutButton = () => {
+  const { signOut } = useAuth();
+  return (
+    <button
+      onClick={signOut}
+      className="w-full py-2.5 rounded-lg border border-muted bg-muted/20 text-muted-foreground text-xs tracking-wider uppercase hover:bg-muted/40 transition"
+    >
+      Sign Out
+    </button>
   );
 };
