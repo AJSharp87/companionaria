@@ -1,25 +1,28 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAria } from '@/contexts/AriaContext';
+import { AriaOrb } from './AriaOrb';
 
 export const ChatPanel = () => {
   const {
     chatMsgs, sendMsg, toggleMic, toggleVoice, snapAndAsk, toggleCam, toggleSetting,
     settings, isListening, isSpeaking, camActive, currentAttachment, setAttachment,
     processFile, orbState, stopSpeak, toggleWakeWord, wakeWordActive,
-    liveTranscript, toggleVAD, vadActive,
+    liveTranscript, toggleVAD, vadActive, profile,
   } = useAria();
   const [input, setInput] = useState('');
+  const [orbVisible, setOrbVisible] = useState(true);
   const messagesRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-  }, [chatMsgs, liveTranscript, orbState]);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMsgs]);
 
   // Force scroll to bottom on initial mount (after layout paints)
   useEffect(() => {
     const t = setTimeout(() => {
-      if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 50);
     return () => clearTimeout(t);
   }, []);
@@ -37,6 +40,25 @@ export const ChatPanel = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {/* Orb */}
+      {orbVisible && (
+        <div className="flex flex-col items-center py-4 border-b border-border/30 bg-background/60 backdrop-blur-xl flex-shrink-0">
+          <AriaOrb size={80} />
+          <p className="text-[8px] tracking-[0.22em] uppercase text-muted-foreground/60 mt-2 text-center min-h-[13px]">
+            {orbState === 'thinking' ? 'Processing...'
+              : orbState === 'speaking' ? 'Speaking...'
+              : orbState === 'listening' ? 'Listening...'
+              : profile.name ? `Online — ${profile.name}` : 'Initializing...'}
+          </p>
+        </div>
+      )}
+      <button
+        onClick={() => setOrbVisible(v => !v)}
+        className="w-full flex items-center justify-center py-1 border-b border-border/30 text-muted-foreground/20 hover:text-muted-foreground/40 transition-colors flex-shrink-0"
+      >
+        {orbVisible ? '▲ hide' : '▼ aria'}
+      </button>
+
       {/* Header */}
       <div className="px-4 md:px-5 py-3 border-b border-border flex items-center justify-between bg-background/85 backdrop-blur-xl flex-shrink-0">
         <h2 className="aria-serif text-base md:text-lg font-light text-aria-lav tracking-wider">Conversation</h2>
@@ -65,7 +87,7 @@ export const ChatPanel = () => {
       </div>
 
       {/* Messages */}
-      <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 md:px-5 py-4 flex flex-col gap-4">
+      <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 md:px-5 py-4 flex flex-col gap-4 min-h-0">
         {orbState === 'thinking' && chatMsgs.length === 0 && (
           <div className="flex items-center justify-center h-full text-muted-foreground/30 text-sm">
             Loading...
@@ -124,6 +146,7 @@ export const ChatPanel = () => {
             </div>
           </div>
         )}
+        <div ref={bottomRef} />
       </div>
 
       {/* Attachment bar */}
