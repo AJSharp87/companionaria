@@ -179,6 +179,15 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const vadRef = useRef<any>(null);
+  const vadAnalyserRef = useRef<AnalyserNode | null>(null);
+  const vadAudioCtxRef = useRef<AudioContext | null>(null);
+  const vadStreamRef = useRef<MediaStream | null>(null);
+  const vadLoopRef = useRef<number>(0);
+  const vadSpeakingRef = useRef(false);
+  const vadSilenceTimerRef = useRef<any>(null);
+  const vadChunksRef = useRef<Float32Array[]>([]);
+  const vadProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const orbStateRef = useRef(orbState);
 
   const camStreamRef = useRef<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -206,6 +215,7 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { elevenVoiceIdRef.current = elevenVoiceId; }, [elevenVoiceId]);
   useEffect(() => { sbUrlRef.current = sbUrl; }, [sbUrl]);
   useEffect(() => { sbAnonRef.current = sbAnon; }, [sbAnon]);
+  useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
 
   // ── LocalStorage ──
   const lsSave = useCallback(() => {
@@ -435,7 +445,11 @@ VOICE: Use ${n}'s name naturally. Match energy. NEVER break character. You are A
       const mtype = isSafe ? 'safety' : isSug ? 'suggestion' : 'normal';
       setChatMsgs(prev => [...prev, { role: 'assistant', content: txt, type: mtype }]);
       saveMsg('assistant', txt, mtype);
-      if (settingsRef.current.autoread && settingsRef.current.voice) speakFn(txt);
+      if (settingsRef.current.autoread && settingsRef.current.voice) {
+        stopSpeakFn();
+        await new Promise(r => setTimeout(r, 120));
+        speakFn(txt);
+      }
       if (settingsRef.current.learn && userTxt && !isGreet) learnFn(userTxt, txt);
       setOrbState('idle');
     } catch (e: any) {
@@ -477,7 +491,11 @@ VOICE: Use ${n}'s name naturally. Match energy. NEVER break character. You are A
       const txt = data.content?.map((b: any) => b.text || '').join('') || 'I can see you.';
       setChatMsgs(prev => [...prev, { role: 'assistant', content: txt, type: 'vision' }]);
       saveMsg('assistant', txt, 'vision');
-      if (settingsRef.current.autoread && settingsRef.current.voice) speakFn(txt);
+      if (settingsRef.current.autoread && settingsRef.current.voice) {
+        stopSpeakFn();
+        await new Promise(r => setTimeout(r, 120));
+        speakFn(txt);
+      }
       setOrbState('idle');
     } catch (e: any) {
       setChatMsgs(prev => [...prev, { role: 'assistant', content: 'Vision issue: ' + e.message }]);
@@ -561,6 +579,7 @@ ${knownStr}`;
       return;
     }
     try {
+      window.speechSynthesis?.cancel();
       setOrbState('speaking');
       isSpeakingRef.current = true;
       setIsSpeaking(true);
@@ -758,57 +777,87 @@ ${knownStr}`;
   // ── Voice Activity Detection (VAD) ──
   const startVAD = useCallback(async () => {
     try {
-      const { MicVAD } = await import('@ricky0123/vad-web');
-      const vad = await MicVAD.new({
-        onSpeechStart: () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      vadStreamRef.current = stream;
+      const audioCtx = new AudioContext({ sampleRate: 16000 });
+      vadAudioCtxRef.current = audioCtx;
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.3;
+      vadAnalyserRef.current = analyser;
+      source.connect(analyser);
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      vadProcessorRef.current = processor;
+      processor.onaudioprocess = (e) => {
+        if (vadSpeakingRef.current) {
+          vadChunksRef.current.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        }
+      };
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const THRESHOLD = 18;
+      const SILENCE_DELAY = 1200;
+      const loop = () => {
+        analyser.getByteFrequencyData(dataArray);
+        const rms = Math.sqrt(dataArray.reduce((s, v) => s + v * v, 0) / dataArray.length);
+        const isSpeaking = rms > THRESHOLD;
+        if (isSpeaking && !vadSpeakingRef.current) {
+          vadSpeakingRef.current = true;
+          vadChunksRef.current = [];
+          clearTimeout(vadSilenceTimerRef.current);
           setOrbState('listening');
-          toast('🎙 Detected voice...', '');
-        },
-        onSpeechEnd: async (audio: Float32Array) => {
-          const dgKey = deepgramKeyRef.current;
-          if (!dgKey) {
-            startMicFn();
-            return;
-          }
-          setOrbState('thinking');
-          try {
-            const wavBuffer = float32ToWav(audio, 16000);
-            const blob = new Blob([wavBuffer], { type: 'audio/wav' });
-            const lang = deepgramLangRef.current || 'en';
-            const res = await fetch(
-              `https://api.deepgram.com/v1/listen?model=nova-2&language=${encodeURIComponent(lang)}&smart_format=true`,
-              { method: 'POST', headers: { Authorization: 'Token ' + dgKey }, body: blob },
-            );
-            const data = await res.json();
-            const transcript = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
-            if (transcript.trim()) {
-              setChatMsgs(prev => [...prev, { role: 'user', content: transcript }]);
-              saveMsg('user', transcript);
-              const apiMsgs = [...chatMsgsRef.current, { role: 'user', content: transcript }]
-                .slice(-40).map(m => ({ role: m.role, content: m.content }));
-              await callAria(apiMsgs, false, transcript);
-            }
-          } catch (e: any) {
-            toast('VAD transcription error: ' + e.message, 'err');
-          }
-          setOrbState('idle');
-        },
-        onVADMisfire: () => setOrbState('idle'),
-      });
-      await vad.start();
-      vadRef.current = vad;
+        }
+        if (!isSpeaking && vadSpeakingRef.current) {
+          clearTimeout(vadSilenceTimerRef.current);
+          vadSilenceTimerRef.current = setTimeout(async () => {
+            vadSpeakingRef.current = false;
+            setOrbState('thinking');
+            const totalLen = vadChunksRef.current.reduce((s, c) => s + c.length, 0);
+            if (totalLen < 3200) { setOrbState('idle'); return; }
+            const merged = new Float32Array(totalLen);
+            let offset = 0;
+            for (const chunk of vadChunksRef.current) { merged.set(chunk, offset); offset += chunk.length; }
+            vadChunksRef.current = [];
+            const dgKey = deepgramKeyRef.current;
+            if (dgKey) {
+              try {
+                const wavBuffer = float32ToWav(merged, 16000);
+                const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+                const res = await fetch(
+                  'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true',
+                  { method: 'POST', headers: { Authorization: 'Token ' + dgKey }, body: blob }
+                );
+                const data = await res.json();
+                const transcript = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
+                if (transcript.trim()) {
+                  setChatMsgs(prev => [...prev, { role: 'user', content: transcript }]);
+                  saveMsg('user', transcript);
+                  const apiMsgs = [...chatMsgsRef.current, { role: 'user', content: transcript }]
+                    .slice(-40).map(m => ({ role: m.role, content: m.content }));
+                  await callAria(apiMsgs, false, transcript);
+                } else { setOrbState('idle'); }
+              } catch (e: any) { toast('VAD error: ' + e.message, 'err'); setOrbState('idle'); }
+            } else { setOrbState('idle'); startMicFn(); }
+          }, SILENCE_DELAY);
+        }
+        vadLoopRef.current = requestAnimationFrame(loop);
+      };
+      vadLoopRef.current = requestAnimationFrame(loop);
       setVadActive(true);
-      toast('👂 VAD active — speak naturally anytime', 'ok');
-    } catch (e: any) {
-      toast('VAD failed: ' + e.message, 'err');
-    }
-  }, [startMicFn, callAria, saveMsg, toast]);
+      toast('🫀 VAD active — speak naturally anytime', 'ok');
+    } catch (e: any) { toast('VAD failed: ' + e.message, 'err'); }
+  }, [callAria, saveMsg, startMicFn, toast]);
 
   const stopVAD = useCallback(() => {
-    if (vadRef.current) {
-      try { vadRef.current.destroy(); } catch {}
-      vadRef.current = null;
-    }
+    cancelAnimationFrame(vadLoopRef.current);
+    clearTimeout(vadSilenceTimerRef.current);
+    if (vadProcessorRef.current) { try { vadProcessorRef.current.disconnect(); } catch {} vadProcessorRef.current = null; }
+    if (vadAudioCtxRef.current) { try { vadAudioCtxRef.current.close(); } catch {} vadAudioCtxRef.current = null; }
+    if (vadStreamRef.current) { vadStreamRef.current.getTracks().forEach(t => t.stop()); vadStreamRef.current = null; }
+    vadSpeakingRef.current = false;
+    vadChunksRef.current = [];
     setVadActive(false);
     setOrbState('idle');
     toast('VAD stopped');
@@ -1291,6 +1340,7 @@ ${knownStr}`;
     proactiveTimerRef.current = setInterval(async () => {
       if (!settingsRef.current.proactive) return;
       if (isSpeakingRef.current) return;
+      if (orbStateRef.current !== 'idle') return;
       if (!apiKeyRef.current) return;
       const prompt = PROACTIVE_PROMPTS[Math.floor(Math.random() * PROACTIVE_PROMPTS.length)];
       await callAria([{ role: 'user', content: prompt }], true);
