@@ -1,4 +1,4 @@
-import { MessageSquare, User, Brain, Settings, FolderOpen, HardDrive, Circle, Eye, Globe, Scan } from 'lucide-react';
+import { MessageSquare, User, Brain, Settings, FolderOpen, HardDrive, Eye, Globe } from 'lucide-react';
 import { useAria } from '@/contexts/AriaContext';
 import { AriaOrb } from './AriaOrb';
 import {
@@ -7,16 +7,14 @@ import {
 } from '@/components/ui/sidebar';
 
 const NAV_ITEMS = [
-  { id: 'chat', label: 'Chat', icon: MessageSquare },
-  { id: 'orb', label: 'Orb Mode', icon: Circle },
-  { id: 'lens', label: 'Lens Mode', icon: Eye },
-  { id: 'face', label: 'Face Mode', icon: Scan },
-  { id: 'web', label: 'Web Memory', icon: Globe },
-  { id: 'profile', label: 'Profile', icon: User },
-  { id: 'memory', label: 'Memory', icon: Brain },
-  { id: 'files', label: 'Files', icon: FolderOpen },
-  { id: 'backup', label: 'Backup', icon: HardDrive },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'chat',     label: 'Chat',        icon: MessageSquare },
+  { id: 'vision',   label: 'Vision',      icon: Eye },
+  { id: 'web',      label: 'Web Memory',  icon: Globe },
+  { id: 'memory',   label: 'Memory',      icon: Brain },
+  { id: 'profile',  label: 'Profile',     icon: User },
+  { id: 'files',    label: 'Files',       icon: FolderOpen },
+  { id: 'backup',   label: 'Backup',      icon: HardDrive },
+  { id: 'settings', label: 'Settings',    icon: Settings },
 ];
 
 export const AriaSidebar = () => {

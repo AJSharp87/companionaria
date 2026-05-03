@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAria } from '@/contexts/AriaContext';
-import * as faceapi from 'face-api.js';
+import * as faceapi from '@vladmandic/face-api';
 
 interface FaceResult {
   expression: string;
@@ -8,7 +8,9 @@ interface FaceResult {
   age?: number;
 }
 
-export const FacePanel = () => {
+interface FacePanelProps { hideHeader?: boolean; }
+
+export const FacePanel = ({ hideHeader = false }: FacePanelProps) => {
   const { camActive, tryCamera, camStreamRef, toast, sendMsg } = useAria();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -22,7 +24,7 @@ export const FacePanel = () => {
   const lastConfidenceRef = useRef<number>(0);
   const expressionDebounceRef = useRef<any>(null);
 
-  const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+  const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@latest/model';
 
   const loadModels = useCallback(async () => {
     setLoading(true);
@@ -133,6 +135,7 @@ export const FacePanel = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {!hideHeader && (
       <div className="px-4 md:px-5 py-3 border-b border-border flex items-center justify-between bg-background/85 backdrop-blur-xl flex-shrink-0">
         <h2 className="aria-serif text-base md:text-lg font-light text-aria-lav tracking-wider">Face Recognition</h2>
         <button
@@ -149,6 +152,7 @@ export const FacePanel = () => {
           {loading ? '⏳ Loading...' : active ? '⏹ Stop' : '🔍 Activate'}
         </button>
       </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 md:px-5 py-4">
         {!active ? (

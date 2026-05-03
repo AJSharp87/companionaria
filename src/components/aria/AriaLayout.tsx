@@ -7,23 +7,19 @@ import { MemoryPanel } from './MemoryPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { FilesPanel } from './FilesPanel';
 import { BackupPanel } from './BackupPanel';
-import { OrbModePanel } from './OrbModePanel';
 import { SetupOverlay } from './SetupOverlay';
-import { LensModePanel } from './LensModePanel';
 import { WebIngestionPanel } from './WebIngestionPanel';
-import { FacePanel } from './FacePanel';
+import { VisionPanel } from './VisionPanel';
 
 const panels: Record<string, React.FC> = {
   chat: ChatPanel,
+  vision: VisionPanel,
   profile: ProfilePanel,
   memory: MemoryPanel,
   settings: SettingsPanel,
   files: FilesPanel,
   backup: BackupPanel,
-  orb: OrbModePanel,
-  lens: LensModePanel,
   web: WebIngestionPanel,
-  face: FacePanel,
 };
 
 export const AriaLayout = () => {
