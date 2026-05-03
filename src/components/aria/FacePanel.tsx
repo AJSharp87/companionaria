@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAria } from '@/contexts/AriaContext';
+// @ts-ignore
 import * as faceapi from '@vladmandic/face-api';
 
 interface FaceResult {
