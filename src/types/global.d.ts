@@ -1,10 +1,7 @@
 declare module '@vladmandic/face-api' {
-  export * from 'face-api.js';
-}
-
-declare module '@vladmandic/face-api' {
   const faceapi: any;
   export = faceapi;
+  export default faceapi;
 }
 
 declare global {
