@@ -1,3 +1,4 @@
+import { useContext } from 'react';
 import { useAria } from '@/contexts/AriaContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AriaSidebar } from './AriaSidebar';
