@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
 // ── Helper: float32 PCM → WAV ArrayBuffer ──
 function float32ToWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
