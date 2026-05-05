@@ -124,7 +124,7 @@ export const ChatPanel = () => {
                 {msg.role !== 'user' && msg.type === 'vision' && (
                   <div className="text-[9px] tracking-wider uppercase text-accent aria-sans mb-1.5 flex items-center gap-1">📷 Aria sees</div>
                 )}
-                <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere">{msg.content}</div>
+                <div className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>{msg.content}</div>
               </div>
               <div className="flex gap-1.5 items-center mt-1 px-0.5">
                 <span className="text-[8px] text-muted-foreground/20">
