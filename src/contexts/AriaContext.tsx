@@ -776,6 +776,17 @@ ${knownStr}`;
 
   // ── Voice Activity Detection (VAD) ──
   const startVAD = useCallback(async () => {
+    // Clean up any existing VAD session first
+    if (vadAudioCtxRef.current || vadStreamRef.current) {
+      cancelAnimationFrame(vadLoopRef.current);
+      clearTimeout(vadSilenceTimerRef.current);
+      if (vadAnalyserRef.current) { try { vadAnalyserRef.current.disconnect(); } catch {} vadAnalyserRef.current = null; }
+      if (vadProcessorRef.current) { try { vadProcessorRef.current.disconnect(); } catch {} vadProcessorRef.current = null; }
+      if (vadAudioCtxRef.current) { try { vadAudioCtxRef.current.close(); } catch {} vadAudioCtxRef.current = null; }
+      if (vadStreamRef.current) { vadStreamRef.current.getTracks().forEach(t => t.stop()); vadStreamRef.current = null; }
+      vadSpeakingRef.current = false;
+      vadChunksRef.current = [];
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       vadStreamRef.current = stream;
@@ -852,7 +863,10 @@ ${knownStr}`;
 
   const stopVAD = useCallback(() => {
     cancelAnimationFrame(vadLoopRef.current);
+    vadLoopRef.current = 0;
     clearTimeout(vadSilenceTimerRef.current);
+    vadSilenceTimerRef.current = null;
+    if (vadAnalyserRef.current) { try { vadAnalyserRef.current.disconnect(); } catch {} vadAnalyserRef.current = null; }
     if (vadProcessorRef.current) { try { vadProcessorRef.current.disconnect(); } catch {} vadProcessorRef.current = null; }
     if (vadAudioCtxRef.current) { try { vadAudioCtxRef.current.close(); } catch {} vadAudioCtxRef.current = null; }
     if (vadStreamRef.current) { vadStreamRef.current.getTracks().forEach(t => t.stop()); vadStreamRef.current = null; }
