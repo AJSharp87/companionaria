@@ -87,14 +87,14 @@ export const ChatPanel = () => {
       </div>
 
       {/* Messages */}
-      <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 md:px-5 py-4 flex flex-col gap-4 min-h-0">
+      <div ref={messagesRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-5 py-4 flex flex-col gap-4 min-h-0">
         {orbState === 'thinking' && chatMsgs.length === 0 && (
           <div className="flex items-center justify-center h-full text-muted-foreground/30 text-sm">
             Loading...
           </div>
         )}
         {chatMsgs.map((msg, i) => (
-          <div key={i} className={`flex gap-2.5 max-w-[760px] aria-fade-up ${msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}>
+          <div key={i} className={`flex gap-2.5 max-w-full aria-fade-up ${msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}>
             <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] aria-serif ${
               msg.role === 'user'
                 ? 'bg-gradient-to-br from-aria-gold/20 to-secondary/10 border border-aria-gold/25 text-aria-gold text-[8px] tracking-wide'
@@ -124,7 +124,7 @@ export const ChatPanel = () => {
                 {msg.role !== 'user' && msg.type === 'vision' && (
                   <div className="text-[9px] tracking-wider uppercase text-accent aria-sans mb-1.5 flex items-center gap-1">📷 Aria sees</div>
                 )}
-                <div className="whitespace-pre-wrap">{msg.content}</div>
+                <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere">{msg.content}</div>
               </div>
               <div className="flex gap-1.5 items-center mt-1 px-0.5">
                 <span className="text-[8px] text-muted-foreground/20">
