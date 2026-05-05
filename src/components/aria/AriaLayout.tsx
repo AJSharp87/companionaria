@@ -1,4 +1,4 @@
-import { useAria } from '@/contexts/AriaContext';
+import { useAria, useAriaOptional } from '@/contexts/AriaContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AriaSidebar } from './AriaSidebar';
 import { ChatPanel } from './ChatPanel';
@@ -23,7 +23,9 @@ const panels: Record<string, React.FC> = {
 };
 
 export const AriaLayout = () => {
-  const { isSetupComplete, activePanel, toastMsg, syncStatus } = useAria();
+  const ctx = useAriaOptional();
+  if (!ctx) return null;
+  const { isSetupComplete, activePanel, toastMsg, syncStatus } = ctx;
   const PanelComponent = panels[activePanel] || ChatPanel;
 
   return (

@@ -134,11 +134,12 @@ interface AriaContextType {
 }
 
 const AriaContext = createContext<AriaContextType | null>(null);
-export const useAria = () => {
+export const useAria = (): AriaContextType => {
   const ctx = useContext(AriaContext);
   if (!ctx) throw new Error('useAria must be used within AriaProvider');
   return ctx;
 };
+export const useAriaOptional = () => useContext(AriaContext);
 
 // ── Provider ──
 export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
