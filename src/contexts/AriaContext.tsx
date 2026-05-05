@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
 // ── Helper: float32 PCM → WAV ArrayBuffer ──
 function float32ToWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
@@ -275,9 +276,7 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ── Connect ──
   const tryConnect = useCallback(async (url: string, anon: string) => {
     try {
-      const u = new URL(url);
-      if (!u.hostname.includes('supabase')) throw new Error('Not Supabase');
-      dbRef.current = createClient(url, anon);
+      dbRef.current = supabase;
       const { error } = await dbRef.current.from('aria_config').select('id').limit(1);
       if (error) throw error;
       setSyncStatus({ state: 'ok', label: 'Supabase connected' });
