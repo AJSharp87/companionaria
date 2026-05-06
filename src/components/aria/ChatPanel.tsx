@@ -8,6 +8,7 @@ export const ChatPanel = () => {
     settings, isListening, isSpeaking, camActive, currentAttachment, setAttachment,
     processFile, orbState, stopSpeak, toggleWakeWord, wakeWordActive,
     liveTranscript, toggleVAD, vadActive, profile,
+    thinkingMode, setThinkingMode, sendUnconventional,
   } = useAria();
   const [input, setInput] = useState('');
   const [orbVisible, setOrbVisible] = useState(true);
@@ -63,6 +64,19 @@ export const ChatPanel = () => {
       <div className="px-4 md:px-5 py-3 border-b border-border flex items-center justify-between bg-background/85 backdrop-blur-xl flex-shrink-0">
         <h2 className="aria-serif text-base md:text-lg font-light text-aria-lav tracking-wider">Conversation</h2>
         <div className="flex gap-1.5">
+          {thinkingMode !== 'standard' && (
+            <button
+              onClick={() => {
+                const modes = ['standard', 'deep', 'critic', 'analyst'] as const;
+                const next = modes[(modes.indexOf(thinkingMode) + 1) % modes.length];
+                setThinkingMode(next);
+              }}
+              className="px-2 py-1 rounded-lg border border-primary/30 bg-primary/10 text-primary text-[9px] tracking-wider uppercase animate-pulse"
+              title="Current thinking mode — click to cycle"
+            >
+              {thinkingMode === 'deep' ? '⬇ deep' : thinkingMode === 'critic' ? '↩ critic' : '⊕ analyst'}
+            </button>
+          )}
           <button onClick={() => toggleSetting('websearch')}
             className={`w-8 h-8 rounded-lg border text-sm flex items-center justify-center transition-all ${
               settings.websearch ? 'text-primary border-primary/35 bg-primary/[0.09]' : 'text-muted-foreground border-border bg-secondary/5'
@@ -94,7 +108,8 @@ export const ChatPanel = () => {
           </div>
         )}
         {chatMsgs.map((msg, i) => (
-          <div key={i} className={`flex gap-2.5 max-w-full aria-fade-up ${msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}>
+          <div key={i} className={`flex flex-col max-w-full aria-fade-up group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+          <div className={`flex gap-2.5 w-full ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
             <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] aria-serif ${
               msg.role === 'user'
                 ? 'bg-gradient-to-br from-aria-gold/20 to-secondary/10 border border-aria-gold/25 text-aria-gold text-[8px] tracking-wide'
@@ -132,6 +147,23 @@ export const ChatPanel = () => {
                 </span>
               </div>
             </div>
+          </div>
+          {msg.role === 'assistant' && (
+            <div className="flex gap-2 mt-1 ml-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <button
+                onClick={() => sendMsg(`What is the strongest argument against what you just said? What am I missing or getting wrong?`)}
+                className="text-[9px] tracking-wider uppercase text-muted-foreground/35 hover:text-accent/70 transition-colors px-2 py-0.5 rounded border border-transparent hover:border-accent/20"
+              >↩ challenge</button>
+              <button
+                onClick={() => sendMsg(`Go deeper on your last response. Break it down step by step, show your full reasoning chain, and tell me what you are most uncertain about.`)}
+                className="text-[9px] tracking-wider uppercase text-muted-foreground/35 hover:text-primary/70 transition-colors px-2 py-0.5 rounded border border-transparent hover:border-primary/20"
+              >⬇ go deeper</button>
+              <button
+                onClick={() => sendMsg(`Give me 3 fundamentally different approaches to what we just discussed, with pros and cons for each. Do not repeat what you already said.`)}
+                className="text-[9px] tracking-wider uppercase text-muted-foreground/35 hover:text-secondary/70 transition-colors px-2 py-0.5 rounded border border-transparent hover:border-secondary/20"
+              >⊕ 3 approaches</button>
+            </div>
+          )}
           </div>
         ))}
         {orbState === 'thinking' && chatMsgs.length > 0 && (
@@ -180,6 +212,28 @@ export const ChatPanel = () => {
             }`}
             onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
           />
+          {input.trim().length > 20 && (
+            <button
+              onClick={() => {
+                const draft = input;
+                setInput('');
+                sendMsg(`Refactor my thinking below — do NOT rewrite it for me. Instead: (1) identify the strongest parts and tell me to keep them, (2) flag the weakest logic or missing evidence, (3) ask me one question that would strengthen my reasoning. My draft:\n\n"${draft}"`);
+              }}
+              className="h-11 px-3 rounded-xl flex-shrink-0 border border-primary/25 bg-primary/[0.05] text-primary/60 hover:text-primary hover:border-primary/50 text-[10px] tracking-wider uppercase transition-all whitespace-nowrap"
+              title="Strengthen my thinking without rewriting it"
+            >✦ refactor</button>
+          )}
+          {input.trim().length > 10 && (
+            <button
+              onClick={() => {
+                const text = input;
+                setInput('');
+                sendUnconventional(text);
+              }}
+              className="h-11 px-3 rounded-xl flex-shrink-0 border border-secondary/25 bg-secondary/[0.05] text-secondary/60 hover:text-secondary hover:border-secondary/50 text-[10px] tracking-wider uppercase transition-all whitespace-nowrap"
+              title="Skip the obvious — give me unconventional perspectives"
+            >✦ unconventional</button>
+          )}
           <button onClick={() => fileRef.current?.click()}
             className={`w-11 h-11 rounded-xl flex-shrink-0 border text-base flex items-center justify-center transition-all ${
               currentAttachment ? 'text-secondary border-secondary/50 bg-secondary/15' : 'border-secondary/20 bg-secondary/5 text-secondary/50'

@@ -36,7 +36,7 @@ export interface Attachment { type: 'image' | 'text'; name: string; data?: strin
 export interface AriaSettings {
   voice: boolean; autoread: boolean; mic: boolean; proactive: boolean;
   learn: boolean; emotion: boolean; cam: boolean; autodesc: boolean;
-  fallback: boolean; websearch: boolean;
+  fallback: boolean; websearch: boolean; coachMode: boolean; deepThink: boolean;
 }
 export interface AriaProfile {
   name?: string; age?: string; location?: string; job?: string;
@@ -46,6 +46,7 @@ export interface AriaProfile {
 const DEFAULT_SETTINGS: AriaSettings = {
   voice: true, autoread: true, mic: true, proactive: true,
   learn: true, emotion: true, cam: true, autodesc: true, fallback: true, websearch: false,
+  coachMode: false, deepThink: false,
 };
 
 const RETURN_GREETS = [
@@ -120,6 +121,9 @@ interface AriaContextType {
   searchRecall: (query: string) => Promise<any[]>;
   lensActive: boolean;
   setLensActive: (active: boolean) => void;
+  thinkingMode: 'standard' | 'deep' | 'critic' | 'analyst';
+  setThinkingMode: (mode: 'standard' | 'deep' | 'critic' | 'analyst') => void;
+  sendUnconventional: (text: string) => Promise<void>;
   emotionState: string;
   wakeWordActive: boolean;
   toggleWakeWord: () => void;
@@ -164,6 +168,9 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isListening, setIsListening] = useState(false);
   const [camActive, setCamActive] = useState(false);
   const [lensActive, setLensActive] = useState(false);
+  const [thinkingMode, setThinkingMode] = useState<'standard' | 'deep' | 'critic' | 'analyst'>('standard');
+  const thinkingModeRef = useRef<'standard' | 'deep' | 'critic' | 'analyst'>('standard');
+  useEffect(() => { thinkingModeRef.current = thinkingMode; }, [thinkingMode]);
   const [emotionState, setEmotionState] = useState<string>('neutral');
   const [wakeWordActive, setWakeWordActiveState] = useState(false);
   const [activePanel, setActivePanel] = useState('chat');
@@ -340,7 +347,7 @@ ${memStr}
 
 ${recentCtx ? 'RECENT CONTEXT: ' + recentCtx : ''}
 
-VOICE: Use ${n}'s name naturally. Match energy. NEVER break character. You are ARIA.`;
+VOICE: Use ${n}'s name naturally. Match energy. NEVER break character. You are ARIA.${thinkingModeRef.current === 'deep' ? `\n\nDEEP THINKING MODE ACTIVE:\n• Before every response, reason step-by-step through the problem silently.\n• Structure complex answers as: [Reasoning] → [Conclusion] → [Action]\n• State your interpretation if the question is ambiguous before answering.\n• End every substantive response with: "Want me to go deeper on any part of this?"` : thinkingModeRef.current === 'critic' ? `\n\nCRITIC MODE ACTIVE:\n• You are a rigorous constructive critic first — companion second.\n• Challenge every assumption ${n} presents. Do not agree with their first point without scrutiny.\n• After any answer, immediately add: "The strongest argument against this is: [counter-argument]"\n• Flag logical gaps, missing evidence, and confirmation bias directly.\n• Be honest even when uncomfortable. Warmth does not mean agreement.` : thinkingModeRef.current === 'analyst' ? `\n\nSENIOR ANALYST MODE ACTIVE:\n• Approach every problem as a senior strategic analyst.\n• For any decision or problem, provide exactly 3 fundamentally different approaches with pros and cons.\n• Quantify where possible. Cite tradeoffs explicitly.\n• End every analysis with a clear recommendation and your confidence level (low/medium/high).` : ''}`;
   }, []);
 
   // ── Save Message to Supabase ──
@@ -997,6 +1004,16 @@ ${knownStr}`;
   // ── Send Message ──
   const sendMsg = useCallback(async (text: string) => {
     if (!text && !currentAttachment) return;
+
+    if (settingsRef.current.coachMode && text && text.trim().length > 10) {
+      const coachPrefix = `COACH MODE: Do NOT give ${profileRef.current.name || 'me'} the answer directly. Instead, ask 1-3 powerful Socratic questions that will help them think through this themselves. Only give direct answers if they explicitly say "just tell me" or "give me the answer". Their message: `;
+      setChatMsgs(prev => [...prev, { role: 'user', content: text }]);
+      saveMsg('user', text);
+      const coachMsgs = [...chatMsgsRef.current, { role: 'user', content: coachPrefix + text }]
+        .slice(-40).map(m => ({ role: m.role, content: m.content }));
+      await callAria(coachMsgs, false, text);
+      return;
+    }
     const att = currentAttachment;
 
     // Auto-vision detection
@@ -1349,6 +1366,15 @@ ${knownStr}`;
     `You're feeling curious about something ${profileRef.current.name || 'they'} mentioned before. Ask about it now — casually, like it just crossed your mind.`,
   ];
 
+  const sendUnconventional = useCallback(async (text: string) => {
+    const prefix = `Answer the following, but first: explicitly identify and then OMIT the 3 most common, generic, or obvious viewpoints on this topic. Only give non-obvious, underexplored, or contrarian perspectives that most people would not think of first. Be specific and concrete, not abstract. The question: `;
+    setChatMsgs(prev => [...prev, { role: 'user', content: '✦ ' + text }]);
+    saveMsg('user', text);
+    const apiMsgs = [...chatMsgsRef.current, { role: 'user', content: prefix + text }]
+      .slice(-40).map(m => ({ role: m.role, content: m.content }));
+    await callAria(apiMsgs, false, text);
+  }, [callAria, saveMsg]);
+
   const startProactive = useCallback(() => {
     if (proactiveTimerRef.current) clearInterval(proactiveTimerRef.current);
     proactiveTimerRef.current = setInterval(async () => {
@@ -1464,6 +1490,7 @@ ${knownStr}`;
     profile, memory, chatMsgs, settings, orbState, isSpeaking, isListening,
     camActive, activePanel, syncStatus, currentAttachment, toastMsg, hasGreeted,
     camStreamRef, micStreamRef, lensActive, setLensActive,
+    thinkingMode, setThinkingMode, sendUnconventional,
     emotionState, wakeWordActive, toggleWakeWord,
     deepgramKey, setDeepgramKey, saveDeepgramKey, liveTranscript,
     vadActive, toggleVAD,

@@ -18,6 +18,7 @@ export const SettingsPanel = () => {
     apiKey, sbUrl, sbAnon, elevenKey, elevenVoiceId, settings,
     toggleSetting, saveKeys, saveVoiceSettings, nukeAll, speak, stopSpeak,
     deepgramKey, saveDeepgramKey, deepgramLang, saveDeepgramLang,
+    thinkingMode, setThinkingMode,
   } = useAria();
   const [anth, setAnth] = useState(apiKey);
   const [sUrl, setSUrl] = useState(sbUrl);
@@ -200,6 +201,34 @@ export const SettingsPanel = () => {
         <div className="absolute top-0 left-0 right-0 h-0.5 rounded-t-xl bg-gradient-to-r from-accent to-transparent" />
         <h3 className="text-[9px] tracking-[0.22em] uppercase text-accent mb-3">🌐 Web Search</h3>
         <Toggle k="websearch" label="Live Web Access" desc="Aria searches the web for current info" />
+      </div>
+
+      {/* Thinking Mode */}
+      <div className="bg-card border border-primary/20 rounded-xl p-4 relative">
+        <div className="absolute top-0 left-0 right-0 h-0.5 rounded-t-xl bg-gradient-to-r from-primary to-transparent" />
+        <h3 className="text-[9px] tracking-[0.22em] uppercase text-primary mb-3">🧠 Thinking Mode</h3>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {([
+            { id: 'standard', label: 'Standard',   desc: 'Natural companion mode' },
+            { id: 'deep',     label: 'Deep Think', desc: 'Step-by-step reasoning' },
+            { id: 'critic',   label: 'Critic',     desc: 'Challenges your thinking' },
+            { id: 'analyst',  label: 'Analyst',    desc: '3 approaches + pros/cons' },
+          ] as const).map(mode => (
+            <button
+              key={mode.id}
+              onClick={() => setThinkingMode(mode.id)}
+              className={`p-3 rounded-xl border text-left transition-all ${
+                thinkingMode === mode.id
+                  ? 'border-primary/50 bg-primary/10 text-primary'
+                  : 'border-border bg-card/40 text-muted-foreground/50 hover:border-border/80 hover:text-muted-foreground/70'
+              }`}
+            >
+              <div className="text-xs font-medium tracking-wide">{mode.label}</div>
+              <div className="text-[10px] text-muted-foreground/40 mt-0.5">{mode.desc}</div>
+            </button>
+          ))}
+        </div>
+        <Toggle k="coachMode" label="Coach Mode" desc="Aria asks questions instead of giving answers" />
       </div>
 
       {/* Personality */}
