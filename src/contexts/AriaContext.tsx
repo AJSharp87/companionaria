@@ -1004,6 +1004,16 @@ ${knownStr}`;
   // ── Send Message ──
   const sendMsg = useCallback(async (text: string) => {
     if (!text && !currentAttachment) return;
+
+    if (settingsRef.current.coachMode && text && text.trim().length > 10) {
+      const coachPrefix = `COACH MODE: Do NOT give ${profileRef.current.name || 'me'} the answer directly. Instead, ask 1-3 powerful Socratic questions that will help them think through this themselves. Only give direct answers if they explicitly say "just tell me" or "give me the answer". Their message: `;
+      setChatMsgs(prev => [...prev, { role: 'user', content: text }]);
+      saveMsg('user', text);
+      const coachMsgs = [...chatMsgsRef.current, { role: 'user', content: coachPrefix + text }]
+        .slice(-40).map(m => ({ role: m.role, content: m.content }));
+      await callAria(coachMsgs, false, text);
+      return;
+    }
     const att = currentAttachment;
 
     // Auto-vision detection
@@ -1356,6 +1366,15 @@ ${knownStr}`;
     `You're feeling curious about something ${profileRef.current.name || 'they'} mentioned before. Ask about it now — casually, like it just crossed your mind.`,
   ];
 
+  const sendUnconventional = useCallback(async (text: string) => {
+    const prefix = `Answer the following, but first: explicitly identify and then OMIT the 3 most common, generic, or obvious viewpoints on this topic. Only give non-obvious, underexplored, or contrarian perspectives that most people would not think of first. Be specific and concrete, not abstract. The question: `;
+    setChatMsgs(prev => [...prev, { role: 'user', content: '✦ ' + text }]);
+    saveMsg('user', text);
+    const apiMsgs = [...chatMsgsRef.current, { role: 'user', content: prefix + text }]
+      .slice(-40).map(m => ({ role: m.role, content: m.content }));
+    await callAria(apiMsgs, false, text);
+  }, [callAria, saveMsg]);
+
   const startProactive = useCallback(() => {
     if (proactiveTimerRef.current) clearInterval(proactiveTimerRef.current);
     proactiveTimerRef.current = setInterval(async () => {
@@ -1471,6 +1490,7 @@ ${knownStr}`;
     profile, memory, chatMsgs, settings, orbState, isSpeaking, isListening,
     camActive, activePanel, syncStatus, currentAttachment, toastMsg, hasGreeted,
     camStreamRef, micStreamRef, lensActive, setLensActive,
+    thinkingMode, setThinkingMode, sendUnconventional,
     emotionState, wakeWordActive, toggleWakeWord,
     deepgramKey, setDeepgramKey, saveDeepgramKey, liveTranscript,
     vadActive, toggleVAD,
