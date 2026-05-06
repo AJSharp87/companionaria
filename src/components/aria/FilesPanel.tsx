@@ -12,7 +12,8 @@ export const FilesPanel = () => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex-1 overflow-y-auto min-h-0 p-5 flex flex-col gap-4">
       <h2 className="aria-serif text-xl font-light text-aria-lav tracking-wider border-b border-border pb-3">Files & Images</h2>
       <p className="text-[11px] text-muted-foreground leading-relaxed">Drop any file here — Aria can read documents, edit text, and describe images.</p>
 
@@ -34,6 +35,7 @@ export const FilesPanel = () => {
           ← Go to Chat
         </button>
       </div>
+    </div>
     </div>
   );
 };

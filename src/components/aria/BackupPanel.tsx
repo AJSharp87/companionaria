@@ -6,7 +6,8 @@ export const BackupPanel = () => {
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex-1 overflow-y-auto min-h-0 p-5 flex flex-col gap-4">
       <h2 className="aria-serif text-xl font-light text-aria-lav tracking-wider border-b border-border pb-3">USB Backup & Portability</h2>
       <p className="text-[11px] text-muted-foreground leading-relaxed">Aria lives in Supabase — available on every device. Export a safety copy anytime.</p>
 
@@ -43,6 +44,7 @@ export const BackupPanel = () => {
         <h3 className="text-[9px] tracking-[0.22em] uppercase text-accent mb-2">📱 Mobile</h3>
         <p className="text-[11px] text-muted-foreground">Works on any device with a browser. Voice + camera both work on mobile.</p>
       </div>
+    </div>
     </div>
   );
 };

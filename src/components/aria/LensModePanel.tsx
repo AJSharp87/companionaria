@@ -143,7 +143,7 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
       </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-5 py-4">
+      <div className="flex-1 overflow-y-auto min-h-0 px-4 md:px-5 py-4">
         {!lensActive ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
             <div className="w-20 h-20 rounded-full bg-accent/10 border border-accent/25 flex items-center justify-center text-3xl">👁</div>
