@@ -148,6 +148,23 @@ export const ChatPanel = () => {
               </div>
             </div>
           </div>
+          {msg.role === 'assistant' && (
+            <div className="flex gap-2 mt-1 ml-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <button
+                onClick={() => sendMsg(`What is the strongest argument against what you just said? What am I missing or getting wrong?`)}
+                className="text-[9px] tracking-wider uppercase text-muted-foreground/35 hover:text-accent/70 transition-colors px-2 py-0.5 rounded border border-transparent hover:border-accent/20"
+              >↩ challenge</button>
+              <button
+                onClick={() => sendMsg(`Go deeper on your last response. Break it down step by step, show your full reasoning chain, and tell me what you are most uncertain about.`)}
+                className="text-[9px] tracking-wider uppercase text-muted-foreground/35 hover:text-primary/70 transition-colors px-2 py-0.5 rounded border border-transparent hover:border-primary/20"
+              >⬇ go deeper</button>
+              <button
+                onClick={() => sendMsg(`Give me 3 fundamentally different approaches to what we just discussed, with pros and cons for each. Do not repeat what you already said.`)}
+                className="text-[9px] tracking-wider uppercase text-muted-foreground/35 hover:text-secondary/70 transition-colors px-2 py-0.5 rounded border border-transparent hover:border-secondary/20"
+              >⊕ 3 approaches</button>
+            </div>
+          )}
+          </div>
         ))}
         {orbState === 'thinking' && chatMsgs.length > 0 && (
           <div className="flex gap-2.5 self-start aria-fade-up">
