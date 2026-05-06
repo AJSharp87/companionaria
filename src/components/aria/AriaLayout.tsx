@@ -32,9 +32,9 @@ export const AriaLayout = () => {
     <>
       {!isSetupComplete && syncStatus.state !== 'busy' && <SetupOverlay />}
       <SidebarProvider>
-        <div className="min-h-screen flex w-full">
+        <div className="h-screen flex w-full overflow-hidden">
           <AriaSidebar />
-          <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             <header className="h-10 flex items-center border-b border-border bg-background/85 backdrop-blur-xl md:hidden flex-shrink-0">
               <SidebarTrigger className="ml-2 text-muted-foreground" />
               <span className="ml-2 aria-serif text-sm text-aria-lav tracking-wider font-light">ARIA</span>

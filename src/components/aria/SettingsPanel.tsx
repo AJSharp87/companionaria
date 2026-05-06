@@ -59,7 +59,8 @@ export const SettingsPanel = () => {
   );
 
   return (
-    <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex-1 overflow-y-auto min-h-0 p-5 flex flex-col gap-4">
       <h2 className="aria-serif text-xl font-light text-aria-lav tracking-wider border-b border-border pb-3">Settings</h2>
 
       {/* Keys */}
@@ -229,6 +230,7 @@ export const SettingsPanel = () => {
 
         <SignOutButton />
       </div>
+    </div>
     </div>
   );
 };

@@ -191,7 +191,8 @@ export const ChatPanel = () => {
             👁
           </button>
           <button onClick={handleSend}
-            className="w-11 h-11 rounded-xl flex-shrink-0 border border-primary/35 bg-gradient-to-br from-primary/[0.13] to-secondary/[0.13] text-primary text-base flex items-center justify-center transition-all hover:from-primary/25 hover:to-secondary/25 hover:shadow-[0_0_16px_rgba(255,107,157,0.25)] hover:-translate-y-px">
+            disabled={!input.trim() && !liveTranscript && !currentAttachment}
+            className="w-11 h-11 rounded-xl flex-shrink-0 border border-primary/35 bg-gradient-to-br from-primary/[0.13] to-secondary/[0.13] text-primary text-base flex items-center justify-center transition-all hover:from-primary/25 hover:to-secondary/25 hover:shadow-[0_0_16px_rgba(255,107,157,0.25)] hover:-translate-y-px disabled:opacity-30 disabled:pointer-events-none">
             ➤
           </button>
         </div>

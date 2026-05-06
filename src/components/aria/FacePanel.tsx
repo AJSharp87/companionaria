@@ -155,7 +155,7 @@ export const FacePanel = ({ hideHeader = false }: FacePanelProps) => {
       </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-5 py-4">
+      <div className="flex-1 overflow-y-auto min-h-0 px-4 md:px-5 py-4">
         {!active ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4">
             <div className="text-5xl">🔍</div>

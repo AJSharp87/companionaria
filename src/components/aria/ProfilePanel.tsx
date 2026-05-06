@@ -10,7 +10,8 @@ export const ProfilePanel = () => {
   const update = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
 
   return (
-    <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex-1 overflow-y-auto min-h-0 p-5 flex flex-col gap-4">
       <h2 className="aria-serif text-xl font-light text-aria-lav tracking-wider border-b border-border pb-3">Your Profile</h2>
       <p className="text-[11px] text-muted-foreground leading-relaxed">Tell Aria everything about you. Saved to Supabase — synced across all your devices.</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -45,6 +46,7 @@ export const ProfilePanel = () => {
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 };
