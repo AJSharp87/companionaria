@@ -212,6 +212,28 @@ export const ChatPanel = () => {
             }`}
             onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
           />
+          {input.trim().length > 20 && (
+            <button
+              onClick={() => {
+                const draft = input;
+                setInput('');
+                sendMsg(`Refactor my thinking below — do NOT rewrite it for me. Instead: (1) identify the strongest parts and tell me to keep them, (2) flag the weakest logic or missing evidence, (3) ask me one question that would strengthen my reasoning. My draft:\n\n"${draft}"`);
+              }}
+              className="h-11 px-3 rounded-xl flex-shrink-0 border border-primary/25 bg-primary/[0.05] text-primary/60 hover:text-primary hover:border-primary/50 text-[10px] tracking-wider uppercase transition-all whitespace-nowrap"
+              title="Strengthen my thinking without rewriting it"
+            >✦ refactor</button>
+          )}
+          {input.trim().length > 10 && (
+            <button
+              onClick={() => {
+                const text = input;
+                setInput('');
+                sendUnconventional(text);
+              }}
+              className="h-11 px-3 rounded-xl flex-shrink-0 border border-secondary/25 bg-secondary/[0.05] text-secondary/60 hover:text-secondary hover:border-secondary/50 text-[10px] tracking-wider uppercase transition-all whitespace-nowrap"
+              title="Skip the obvious — give me unconventional perspectives"
+            >✦ unconventional</button>
+          )}
           <button onClick={() => fileRef.current?.click()}
             className={`w-11 h-11 rounded-xl flex-shrink-0 border text-base flex items-center justify-center transition-all ${
               currentAttachment ? 'text-secondary border-secondary/50 bg-secondary/15' : 'border-secondary/20 bg-secondary/5 text-secondary/50'
