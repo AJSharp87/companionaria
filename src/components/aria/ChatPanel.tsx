@@ -8,6 +8,7 @@ export const ChatPanel = () => {
     settings, isListening, isSpeaking, camActive, currentAttachment, setAttachment,
     processFile, orbState, stopSpeak, toggleWakeWord, wakeWordActive,
     liveTranscript, toggleVAD, vadActive, profile,
+    thinkingMode, setThinkingMode, sendUnconventional,
   } = useAria();
   const [input, setInput] = useState('');
   const [orbVisible, setOrbVisible] = useState(true);
@@ -63,6 +64,19 @@ export const ChatPanel = () => {
       <div className="px-4 md:px-5 py-3 border-b border-border flex items-center justify-between bg-background/85 backdrop-blur-xl flex-shrink-0">
         <h2 className="aria-serif text-base md:text-lg font-light text-aria-lav tracking-wider">Conversation</h2>
         <div className="flex gap-1.5">
+          {thinkingMode !== 'standard' && (
+            <button
+              onClick={() => {
+                const modes = ['standard', 'deep', 'critic', 'analyst'] as const;
+                const next = modes[(modes.indexOf(thinkingMode) + 1) % modes.length];
+                setThinkingMode(next);
+              }}
+              className="px-2 py-1 rounded-lg border border-primary/30 bg-primary/10 text-primary text-[9px] tracking-wider uppercase animate-pulse"
+              title="Current thinking mode — click to cycle"
+            >
+              {thinkingMode === 'deep' ? '⬇ deep' : thinkingMode === 'critic' ? '↩ critic' : '⊕ analyst'}
+            </button>
+          )}
           <button onClick={() => toggleSetting('websearch')}
             className={`w-8 h-8 rounded-lg border text-sm flex items-center justify-center transition-all ${
               settings.websearch ? 'text-primary border-primary/35 bg-primary/[0.09]' : 'text-muted-foreground border-border bg-secondary/5'
@@ -94,7 +108,8 @@ export const ChatPanel = () => {
           </div>
         )}
         {chatMsgs.map((msg, i) => (
-          <div key={i} className={`flex gap-2.5 max-w-full aria-fade-up ${msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}>
+          <div key={i} className={`flex flex-col max-w-full aria-fade-up group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+          <div className={`flex gap-2.5 w-full ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
             <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] aria-serif ${
               msg.role === 'user'
                 ? 'bg-gradient-to-br from-aria-gold/20 to-secondary/10 border border-aria-gold/25 text-aria-gold text-[8px] tracking-wide'
