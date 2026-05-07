@@ -9,6 +9,7 @@ export const ChatPanel = () => {
     processFile, orbState, stopSpeak, toggleWakeWord, wakeWordActive,
     liveTranscript, toggleVAD, vadActive, profile,
     thinkingMode, setThinkingMode, sendUnconventional,
+    camStreamRef,
   } = useAria();
   const [input, setInput] = useState('');
   const [orbVisible, setOrbVisible] = useState(true);
@@ -261,6 +262,21 @@ export const ChatPanel = () => {
           className="fixed bottom-7 left-1/2 -translate-x-1/2 z-[3000] flex items-center gap-2 px-7 py-3 rounded-full cursor-pointer bg-gradient-to-br from-destructive/90 to-[rgba(192,60,120,0.88)] border border-primary/60 shadow-[0_8px_32px_rgba(255,71,87,0.45)] text-foreground aria-sans text-sm font-medium tracking-[0.18em] uppercase backdrop-blur-xl hover:brightness-110">
           ⏹ Stop
         </button>
+      )}
+
+      {/* Hidden camera feed — always mounted when cam is active, used by captureFrame() */}
+      {camActive && (
+        <video
+          id="aria-vfeed"
+          ref={(el) => {
+            if (el && camStreamRef.current) el.srcObject = camStreamRef.current;
+          }}
+          autoPlay
+          playsInline
+          muted
+          className="absolute opacity-0 pointer-events-none w-px h-px"
+          style={{ position: 'fixed', top: '-9999px', left: '-9999px' }}
+        />
       )}
     </div>
   );
