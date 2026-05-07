@@ -996,7 +996,13 @@ ${knownStr}`;
     if (!camActive) { await tryCamera(); toast('Camera starting — try again in 2 seconds'); return; }
     const f = captureFrame();
     if (!f) { toast('Could not capture frame', 'err'); return; }
-    const prompt = text || 'Tell me what you see right now — me and my surroundings. Be personal and observant.';
+    const prompt = text || `Analyze this image in full detail. Identify and describe:
+1. Any people — their appearance, expression, posture, what they're doing, approximate age, clothing
+2. Any animals — species, breed if possible, behavior
+3. All visible objects — what they are, where they are (left/center/right/background/foreground), context
+4. The environment — room type, lighting, mood, time of day if inferrable
+5. Any text visible in the frame
+Be specific and personal. Address ${profileRef.current.name || 'them'} directly. 2-4 sentences.`;
     const display = text || '📷 [Camera shared]';
     await callVision(f, prompt, display);
   }, [camActive, tryCamera, captureFrame, callVision, toast]);
@@ -1017,7 +1023,7 @@ ${knownStr}`;
     const att = currentAttachment;
 
     // Auto-vision detection
-    const visionKeywords = /\b(look|see|watch|my face|i look|wearing|room|surroundings|what do you see|describe me|expression)\b/i;
+    const visionKeywords = /\b(look|see|watch|my face|i look|wearing|room|surroundings|what do you see|describe me|expression|who is|what is|identify|recognize|spot|notice|observe|camera|in front|behind me|next to|around me|in my room|on my desk|what am i|who am i|analyze|scan)\b/i;
     if (camActive && !att && text && visionKeywords.test(text)) {
       const frame = captureFrame();
       if (frame) {
