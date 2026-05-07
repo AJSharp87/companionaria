@@ -1477,6 +1477,7 @@ const ingestUrl = useCallback(async (url: string) => {
       lsSave();
       setOrbState('idle');
       startProactive();
+      if (storedSet?.autodesc !== false) startPassiveDesc();
       if (hasAnthropicKey && !hadMsgs) setTimeout(() => greet(), 600);
     } catch (e) {
       console.error('bootApp error:', e);
