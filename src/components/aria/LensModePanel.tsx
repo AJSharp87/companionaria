@@ -10,12 +10,14 @@ interface Detection {
 interface LensModePanelProps { hideHeader?: boolean; }
 
 export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
-  const { camActive, tryCamera, stopCamera, camStreamRef, logVisualObservation, toast, lensActive, setLensActive } = useAria();
+  const { camActive, tryCamera, stopCamera, camStreamRef, logVisualObservation, toast, lensActive, setLensActive, snapAndAsk } = useAria();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modelRef = useRef<any>(null);
   const animRef = useRef<number>(0);
   const loggedRef = useRef<Set<string>>(new Set());
+  const lastVisionDescRef = useRef<number>(0);
+  const lastObjectsRef = useRef<string>('');
   const [detections, setDetections] = useState<Detection[]>([]);
   const [modelLoading, setModelLoading] = useState(false);
   const [modelReady, setModelReady] = useState(false);
