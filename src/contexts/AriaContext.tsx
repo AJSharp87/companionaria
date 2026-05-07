@@ -1043,6 +1043,33 @@ Be specific and personal. Address ${profileRef.current.name || 'them'} directly.
     await callAria(apiMsgs, false, text || null, att);
   }, [currentAttachment, camActive, captureFrame, callVision, callAria, saveMsg]);
 
+  // ── Passive Auto-Describe ──
+  const passiveDescTimerRef = useRef<any>(null);
+  const startPassiveDesc = useCallback(() => {
+    if (passiveDescTimerRef.current) clearInterval(passiveDescTimerRef.current);
+    passiveDescTimerRef.current = setInterval(async () => {
+      if (!settingsRef.current.autodesc) return;
+      if (!settingsRef.current.cam) return;
+      if (isSpeakingRef.current) return;
+      if (orbStateRef.current !== 'idle') return;
+      if (!apiKeyRef.current) return;
+      const frame = captureFrame();
+      if (!frame) return;
+      await callVision(
+        frame,
+        `You are passively observing through the camera. Describe what you see in rich detail — identify any people, animals, objects, activities, body language, lighting, and mood. Note spatial positions (left, center, right, background, foreground). Be personal, warm, and observant. If you recognize the person, acknowledge them. Keep it to 2-3 sentences.`,
+        '👁 [Passive observation]'
+      );
+    }, 5 * 60 * 1000);
+  }, [captureFrame, callVision]);
+
+  const stopPassiveDesc = useCallback(() => {
+    if (passiveDescTimerRef.current) {
+      clearInterval(passiveDescTimerRef.current);
+      passiveDescTimerRef.current = null;
+    }
+  }, []);
+
   // ── Settings ──
   const toggleSetting = useCallback((key: keyof AriaSettings) => {
     setSettings(prev => {
