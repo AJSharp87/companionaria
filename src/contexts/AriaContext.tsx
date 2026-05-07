@@ -1052,9 +1052,10 @@ Be specific and personal. Address ${profileRef.current.name || 'them'} directly.
       lsSave();
       if (key === 'cam') { ns[key] ? tryCamera() : stopCamera(); }
       if (key === 'proactive') { ns[key] ? startProactive() : clearInterval(proactiveTimerRef.current); }
+      if (key === 'autodesc') { ns[key] ? startPassiveDesc() : stopPassiveDesc(); }
       return ns;
     });
-  }, [dbSet, lsSave, tryCamera, stopCamera]);
+  }, [dbSet, lsSave, tryCamera, stopCamera, startPassiveDesc, stopPassiveDesc]);
 
   // ── Profile ──
   const saveProfileFn = useCallback(async (data: AriaProfile) => {
