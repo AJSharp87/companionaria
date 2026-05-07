@@ -120,6 +120,34 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
     return () => cancelAnimationFrame(animRef.current);
   }, [lensActive, modelReady, logVisualObservation]);
 
+  // Periodic Claude Vision enhancement — sends scene to Claude for rich descriptions
+  useEffect(() => {
+    if (!lensActive || !modelReady) return;
+    const interval = setInterval(async () => {
+      if (!videoRef.current || videoRef.current.readyState < 2) return;
+      const currentObjects = detections.map(d => d.label).join(', ');
+      if (!currentObjects) return;
+      if (currentObjects === lastObjectsRef.current) return;
+      lastObjectsRef.current = currentObjects;
+      const canvas = document.createElement('canvas');
+      const vid = videoRef.current;
+      const sc = Math.min(512 / vid.videoWidth, 512 / vid.videoHeight, 1);
+      canvas.width = Math.round(vid.videoWidth * sc);
+      canvas.height = Math.round(vid.videoHeight * sc);
+      canvas.getContext('2d')!.drawImage(vid, 0, 0, canvas.width, canvas.height);
+      const b64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+      if (!b64 || b64.length < 500) return;
+      const width = vid.videoWidth;
+      const withPositions = detections.map(d => {
+        const cx = d.bbox[0] + d.bbox[2] / 2;
+        const zone = cx < width / 3 ? 'left' : cx > (width * 2) / 3 ? 'right' : 'center';
+        return `${d.label} (${zone}, ${(d.score * 100).toFixed(0)}% confidence)`;
+      }).join(', ');
+      await snapAndAsk(`[Lens Mode Active] COCO-SSD detected: ${withPositions}. Now look at the actual image and give a rich, specific description. Identify: any people and what they're doing/wearing/expressing, any animals and their breed/species if possible, all notable objects and their context, spatial relationships, lighting and mood. Be specific — not generic. 2-3 sentences max.`);
+    }, 45000);
+    return () => clearInterval(interval);
+  }, [lensActive, modelReady, detections, snapAndAsk]);
+
   // Clear logged set periodically so repeated objects get re-logged
   useEffect(() => {
     if (!lensActive) return;
