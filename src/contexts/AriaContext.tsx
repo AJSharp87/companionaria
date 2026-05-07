@@ -1316,30 +1316,37 @@ ${knownStr}`;
   }, []);
 
   // ── Web Ingestion & Passive Recall ──
-  const ingestUrl = useCallback(async (url: string) => {
+const ingestUrl = useCallback(async (url: string) => {
     if (!dbRef.current) { toast('Not connected to database', 'err'); return; }
     toast('Ingesting URL...');
     try {
       let formattedUrl = url.trim();
       if (!formattedUrl.startsWith('http')) formattedUrl = 'https://' + formattedUrl;
-      // Use a CORS proxy or direct fetch for metadata
-      const res = await fetch(formattedUrl);
-      const html = await res.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const title = doc.querySelector('title')?.textContent || '';
-      const description = doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+
+      // Call Edge Function proxy to avoid browser CORS restrictions
+      const { data, error } = await dbRef.current.functions.invoke('fetch-url-metadata', {
+        body: { url: formattedUrl },
+      });
+
+      let title = formattedUrl;
+      let description = '';
+
+      if (!error && data && !data.error) {
+        title = data.title || formattedUrl;
+        description = data.description || '';
+      }
+
       await dbRef.current.from('passive_recall_logs').insert({
         url: formattedUrl, title, description, device_type: getDeviceType(),
       });
+
       toast('URL ingested: ' + (title || formattedUrl), 'ok');
     } catch (e: any) {
-      // Fallback: save URL without metadata if fetch fails (CORS)
       try {
         await dbRef.current!.from('passive_recall_logs').insert({
-          url: url.trim(), title: url.trim(), description: 'Could not fetch metadata (CORS)', device_type: getDeviceType(),
+          url: url.trim(), title: url.trim(), description: 'Could not fetch metadata', device_type: getDeviceType(),
         });
-        toast('URL saved (metadata unavailable due to CORS)', 'ok');
+        toast('URL saved (metadata unavailable)', 'ok');
       } catch (e2: any) { toast('Failed to ingest URL: ' + e2.message, 'err'); }
     }
   }, [toast]);
