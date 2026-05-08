@@ -206,6 +206,8 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const stopCtrlRef = useRef<AbortController | null>(null);
   const isSpeakingRef = useRef(false);
+  const ttsAudioCtxRef = useRef<AudioContext | null>(null);
+  const ttsUnlockedRef = useRef(false);
   const toastTimerRef = useRef<any>(null);
   const memoryRef = useRef(memory);
   const settingsRef = useRef(settings);
@@ -561,14 +563,46 @@ ${knownStr}`;
     return chunks;
   };
 
+  const unlockAudio = useCallback(async () => {
+    if (ttsUnlockedRef.current) return;
+    try {
+      const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
+      if (Ctx && !ttsAudioCtxRef.current) ttsAudioCtxRef.current = new Ctx();
+      if (ttsAudioCtxRef.current && ttsAudioCtxRef.current.state !== 'running') {
+        await ttsAudioCtxRef.current.resume();
+      }
+      // Prime an HTMLAudioElement with a silent play to satisfy autoplay policy
+      const silent = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIPzJjxjWMpyy3p1xAAAA');
+      silent.volume = 0;
+      try { await silent.play(); silent.pause(); } catch {}
+      ttsUnlockedRef.current = true;
+      console.log('[Voice] Audio unlocked');
+    } catch (e: any) {
+      console.warn('[Voice] Audio unlock failed:', e?.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = () => { unlockAudio(); };
+    window.addEventListener('click', handler, { once: false });
+    window.addEventListener('touchstart', handler, { once: false });
+    window.addEventListener('keydown', handler, { once: false });
+    return () => {
+      window.removeEventListener('click', handler);
+      window.removeEventListener('touchstart', handler);
+      window.removeEventListener('keydown', handler);
+    };
+  }, [unlockAudio]);
+
   const playUrl = (url: string): Promise<void> => {
     return new Promise((res, rej) => {
       const a = new Audio(url);
       currentAudioRef.current = a;
       a.onended = () => { currentAudioRef.current = null; res(); };
-      a.onerror = (e) => { currentAudioRef.current = null; rej(e); };
+      a.onerror = (e) => { currentAudioRef.current = null; console.error('[Voice] Audio playback error', e); rej(new Error('Audio playback failed')); };
       a.play().catch((e) => {
         currentAudioRef.current = null;
+        console.error('[Voice] play() rejected:', e?.message);
         rej(e);
       });
     });
@@ -582,9 +616,12 @@ ${knownStr}`;
     const ek = elevenKeyRef.current;
     const evid = elevenVoiceIdRef.current;
     if (!ek || !evid) {
+      console.warn('[Voice] Missing ElevenLabs credentials', { hasKey: !!ek, hasVoiceId: !!evid });
       toast('Add your ElevenLabs API key and Voice ID in Settings to enable voice', 'err');
       return;
     }
+    // Ensure audio is unlocked (may no-op if already unlocked or no gesture yet)
+    await unlockAudio();
     try {
       window.speechSynthesis?.cancel();
       setOrbState('speaking');
@@ -596,7 +633,7 @@ ${knownStr}`;
         stopCtrlRef.current = new AbortController();
         const res = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + evid, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'xi-api-key': ek },
+          headers: { 'Content-Type': 'application/json', 'xi-api-key': ek, 'Accept': 'audio/mpeg' },
           body: JSON.stringify({
             text: ch, model_id: 'eleven_turbo_v2_5',
             voice_settings: { stability: 0.48, similarity_boost: 0.88, style: 0.52, use_speaker_boost: true },
@@ -604,8 +641,21 @@ ${knownStr}`;
           signal: stopCtrlRef.current.signal,
         });
         if (!isSpeakingRef.current) return;
-        if (!res.ok) throw new Error('ElevenLabs ' + res.status);
-        const url = URL.createObjectURL(await res.blob());
+        const ctype = res.headers.get('content-type') || '';
+        console.log('[Voice] ElevenLabs response', { status: res.status, contentType: ctype });
+        if (!res.ok || !ctype.includes('audio')) {
+          let detail = '';
+          try {
+            const txt = await res.text();
+            try { const j = JSON.parse(txt); detail = j?.detail?.message || j?.detail?.status || j?.detail || txt; }
+            catch { detail = txt; }
+          } catch {}
+          console.error('[Voice] ElevenLabs error body:', detail);
+          throw new Error(`ElevenLabs ${res.status}: ${typeof detail === 'string' ? detail.slice(0, 200) : JSON.stringify(detail).slice(0, 200)}`);
+        }
+        const blob = await res.blob();
+        if (!blob.size) throw new Error('ElevenLabs returned empty audio');
+        const url = URL.createObjectURL(blob);
         if (!isSpeakingRef.current) { URL.revokeObjectURL(url); return; }
         await playUrl(url);
         URL.revokeObjectURL(url);
@@ -615,11 +665,12 @@ ${knownStr}`;
       setOrbState('idle');
     } catch (e: any) {
       if (e.name === 'AbortError') return;
-      const isGestureErr = e.message?.includes('user gesture') || e.message?.includes('interact');
-      console.warn('ElevenLabs failed:', e.message);
+      const msg = e?.message || String(e);
+      const isGestureErr = msg.includes('user gesture') || msg.includes('interact') || msg.includes('NotAllowedError') || e?.name === 'NotAllowedError';
+      console.error('[Voice] ElevenLabs failed:', msg);
       if (isGestureErr && window.speechSynthesis) {
-        // Fallback to browser TTS when autoplay is blocked
-        console.log('[Voice] Falling back to browser TTS');
+        console.log('[Voice] Falling back to browser TTS (autoplay blocked)');
+        toast('Click anywhere once to enable voice playback', 'err');
         const utt = new SpeechSynthesisUtterance(clean);
         utt.lang = 'en-US';
         utt.onend = () => { isSpeakingRef.current = false; setIsSpeaking(false); setOrbState('idle'); };
@@ -627,12 +678,12 @@ ${knownStr}`;
         window.speechSynthesis.speak(utt);
         return;
       }
-      toast('Voice error: ' + e.message, 'err');
+      toast('Voice error: ' + msg.slice(0, 160), 'err');
       isSpeakingRef.current = false;
       setIsSpeaking(false);
       setOrbState('idle');
     }
-  }, []);
+  }, [unlockAudio]);
 
   const stopSpeakFn = useCallback(() => {
     isSpeakingRef.current = false;
