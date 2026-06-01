@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAria } from '@/contexts/AriaContext';
-import { AriaOrb } from './AriaOrb';
+import { AriaLive2D } from './AriaLive2D';
 
 export const ChatPanel = () => {
   const {
@@ -45,7 +45,7 @@ export const ChatPanel = () => {
       {/* Orb */}
       {orbVisible && (
         <div className="flex flex-col items-center py-4 border-b border-border/30 bg-background/60 backdrop-blur-xl flex-shrink-0">
-          <AriaOrb size={80} />
+          <AriaLive2D size={80} mode="orb" devMode={true} />
           <p className="text-[8px] tracking-[0.22em] uppercase text-muted-foreground/60 mt-2 text-center min-h-[13px]">
             {orbState === 'thinking' ? 'Processing...'
               : orbState === 'speaking' ? 'Speaking...'

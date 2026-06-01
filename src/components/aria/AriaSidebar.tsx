@@ -1,6 +1,6 @@
 import { MessageSquare, User, Brain, Settings, FolderOpen, HardDrive, Eye, Globe } from 'lucide-react';
 import { useAria } from '@/contexts/AriaContext';
-import { AriaOrb } from './AriaOrb';
+import { AriaLive2D } from './AriaLive2D';
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
   SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
@@ -41,7 +41,7 @@ export const AriaSidebar = () => {
           </div>
         )}
         <div className={`flex flex-col items-center ${collapsed ? 'py-2' : 'py-4'}`}>
-          <AriaOrb size={collapsed ? 50 : 100} />
+          <AriaLive2D size={collapsed ? 50 : 100} mode="orb" devMode={true} />
           {!collapsed && (
             <>
               <p className="text-[8px] tracking-[0.22em] uppercase text-muted-foreground/60 mt-3 text-center min-h-[13px]">
