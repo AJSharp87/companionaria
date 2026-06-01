@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAria } from '@/contexts/AriaContext';
-import { AriaOrb } from './AriaOrb';
+import { AriaLive2D } from './AriaLive2D';
 
 export const OrbModePanel = () => {
   const { orbState, profile, isListening, isSpeaking, toggleMic, sendMsg, setActivePanel, stopSpeak } = useAria();
@@ -15,7 +15,7 @@ export const OrbModePanel = () => {
 
   return (
     <div className="flex flex-col items-center justify-center h-full gap-6 p-10 bg-gradient-to-b from-background to-[rgba(8,4,18,1)]">
-      <AriaOrb size={220} />
+      <AriaLive2D size={280} mode="full" devMode={true} />
 
       <p className="aria-serif text-xl font-light tracking-[0.18em] text-foreground/75 text-center min-h-[30px]">
         {orbState === 'thinking' ? 'Thinking...'
