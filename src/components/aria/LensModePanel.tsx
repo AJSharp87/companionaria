@@ -124,8 +124,10 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
             }
           }
         }
+        setPipelineState('idle');
       } catch (e) {
         console.warn('Detection error:', e);
+        setPipelineState('idle');
       }
 
       animRef.current = requestAnimationFrame(detect);
