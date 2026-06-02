@@ -192,17 +192,35 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
       {!hideHeader && (
       <div className="px-4 md:px-5 py-3 border-b border-border flex items-center justify-between bg-background/85 backdrop-blur-xl flex-shrink-0">
         <h2 className="aria-serif text-base md:text-lg font-light text-aria-lav tracking-wider">Lens Mode</h2>
-        <button
-          onClick={lensActive ? stopLens : startLens}
-          className={`px-4 py-1.5 rounded-lg border text-xs tracking-wider uppercase transition-all ${
-            lensActive
-              ? 'bg-accent/15 border-accent/50 text-accent'
-              : 'bg-secondary/10 border-secondary/30 text-secondary'
-          }`}
-        >
-          {modelLoading ? '⏳ Loading...' : lensActive ? '⏹ Stop' : '👁 Activate'}
-        </button>
+        <div className="flex items-center gap-2">
+          {lensActive && (
+            <VisionStatusIndicator
+              pipelineState={pipelineState}
+              lastFrameAt={lastFrameAt}
+              lastAutodescAt={lastAutodescAt}
+            />
+          )}
+          <button
+            onClick={lensActive ? stopLens : startLens}
+            className={`px-4 py-1.5 rounded-lg border text-xs tracking-wider uppercase transition-all ${
+              lensActive
+                ? 'bg-accent/15 border-accent/50 text-accent'
+                : 'bg-secondary/10 border-secondary/30 text-secondary'
+            }`}
+          >
+            {modelLoading ? '⏳ Loading...' : lensActive ? '⏹ Stop' : '👁 Activate'}
+          </button>
+        </div>
       </div>
+      )}
+      {hideHeader && lensActive && (
+        <div className="px-4 md:px-5 py-2 border-b border-border/30 bg-background/60 backdrop-blur-xl flex-shrink-0 flex justify-end">
+          <VisionStatusIndicator
+            pipelineState={pipelineState}
+            lastFrameAt={lastFrameAt}
+            lastAutodescAt={lastAutodescAt}
+          />
+        </div>
       )}
 
       <div className="flex-1 overflow-y-auto min-h-0 px-4 md:px-5 py-4">
