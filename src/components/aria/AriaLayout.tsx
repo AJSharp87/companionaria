@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useAria, useAriaOptional } from '@/contexts/AriaContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AriaSidebar } from './AriaSidebar';
@@ -10,6 +11,8 @@ import { BackupPanel } from './BackupPanel';
 import { SetupOverlay } from './SetupOverlay';
 import { WebIngestionPanel } from './WebIngestionPanel';
 import { VisionPanel } from './VisionPanel';
+import { useAriaLive2DSync } from '@/hooks/useAriaLive2DSync';
+import { getAriaStateRGB } from '@/lib/ariaLive2DParams';
 
 const panels: Record<string, React.FC> = {
   chat: ChatPanel,
