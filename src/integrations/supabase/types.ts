@@ -32,6 +32,42 @@ export type Database = {
         }
         Relationships: []
       }
+      aria_live2d_state: {
+        Row: {
+          dev_mode: boolean
+          emotion_state: string
+          id: string
+          last_param_snapshot: Json
+          model_url: string
+          orb_state: string
+          tracking_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          dev_mode?: boolean
+          emotion_state?: string
+          id?: string
+          last_param_snapshot?: Json
+          model_url?: string
+          orb_state?: string
+          tracking_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          dev_mode?: boolean
+          emotion_state?: string
+          id?: string
+          last_param_snapshot?: Json
+          model_url?: string
+          orb_state?: string
+          tracking_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       aria_memory: {
         Row: {
           id: string
