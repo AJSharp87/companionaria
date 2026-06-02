@@ -86,9 +86,12 @@ const AriaLayoutInner = () => {
         </div>
       </SidebarProvider>
       {toastMsg && (
-        <div className={`fixed bottom-5 right-5 z-[9998] px-4 py-2.5 rounded-lg bg-card/95 border backdrop-blur-xl text-sm max-w-[280px] transition-all ${
-          toastMsg.type === 'ok' ? 'border-aria-safe/35 text-aria-safe' : toastMsg.type === 'err' ? 'border-destructive/35 text-destructive' : 'border-secondary/25 text-aria-lav'
-        }`}>
+        <div
+          className={`fixed bottom-5 right-5 z-[9998] px-4 py-2.5 rounded-lg bg-card/95 border backdrop-blur-xl text-sm max-w-[280px] transition-all ${
+            toastMsg.type === 'ok' ? 'text-aria-safe' : toastMsg.type === 'err' ? 'text-destructive' : 'text-aria-lav'
+          }`}
+          style={{ borderColor: toastColor }}
+        >
           {toastMsg.text}
         </div>
       )}
