@@ -77,6 +77,15 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
       }
 
       try {
+        setPipelineState('capturing');
+        const vidW = videoRef.current.videoWidth;
+        const vidH = videoRef.current.videoHeight;
+        captureCountRef.current++;
+        // Throttle [AriaVision] log so it doesn't spam — log every ~30th frame
+        if (captureCountRef.current % 30 === 0) {
+          console.log(`[AriaVision] captureFrame fired t=${Date.now()} dim=${vidW}×${vidH} sent=yes`);
+        }
+        setLastFrameAt(Date.now());
         const predictions = await modelRef.current.detect(videoRef.current);
         const highConf: Detection[] = predictions
           .filter((p: any) => p.score > 0.5)
