@@ -145,7 +145,14 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
       const currentObjects = detections.map(d => d.label).join(', ');
       if (!currentObjects) return;
       if (currentObjects === lastObjectsRef.current) return;
+      if (autodescPendingRef.current) {
+        console.log(`[AriaVision] autodesc skipped t=${Date.now()} reason=previous-pending`);
+        return;
+      }
       lastObjectsRef.current = currentObjects;
+      console.log(`[AriaVision] autodesc scheduled t=${Date.now()} trigger=timer pending=${autodescPendingRef.current}`);
+      autodescPendingRef.current = true;
+      setPipelineState('processing');
       const canvas = document.createElement('canvas');
       const vid = videoRef.current;
       const sc = Math.min(512 / vid.videoWidth, 512 / vid.videoHeight, 1);
@@ -153,17 +160,25 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
       canvas.height = Math.round(vid.videoHeight * sc);
       canvas.getContext('2d')!.drawImage(vid, 0, 0, canvas.width, canvas.height);
       const b64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
-      if (!b64 || b64.length < 500) return;
+      if (!b64 || b64.length < 500) { autodescPendingRef.current = false; setPipelineState('idle'); return; }
       const width = vid.videoWidth;
       const withPositions = detections.map(d => {
         const cx = d.bbox[0] + d.bbox[2] / 2;
         const zone = cx < width / 3 ? 'left' : cx > (width * 2) / 3 ? 'right' : 'center';
         return `${d.label} (${zone}, ${(d.score * 100).toFixed(0)}% confidence)`;
       }).join(', ');
-      await snapAndAsk(`[Lens Mode Active] COCO-SSD detected: ${withPositions}. Now look at the actual image and give a rich, specific description. Identify: any people and what they're doing/wearing/expressing, any animals and their breed/species if possible, all notable objects and their context, spatial relationships, lighting and mood. Be specific — not generic. 2-3 sentences max.`);
+      try {
+        await snapAndAsk(`[Lens Mode Active] COCO-SSD detected: ${withPositions}. Now look at the actual image and give a rich, specific description. Identify: any people and what they're doing/wearing/expressing, any animals and their breed/species if possible, all notable objects and their context, spatial relationships, lighting and mood. Be specific — not generic. 2-3 sentences max.`);
+        setLastAutodescAt(Date.now());
+        console.log(`[AriaVision] autodesc completed t=${Date.now()}`);
+      } finally {
+        autodescPendingRef.current = false;
+        setPipelineState('idle');
+      }
     }, 45000);
     return () => clearInterval(interval);
   }, [lensActive, modelReady, detections, snapAndAsk]);
+
 
   // Clear logged set periodically so repeated objects get re-logged
   useEffect(() => {
