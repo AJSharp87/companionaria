@@ -9,6 +9,32 @@ interface Detection {
 
 interface LensModePanelProps { hideHeader?: boolean; }
 
+const VisionStatusIndicator = ({
+  pipelineState, lastFrameAt, lastAutodescAt,
+}: {
+  pipelineState: 'idle' | 'capturing' | 'processing';
+  lastFrameAt: number | null;
+  lastAutodescAt: number | null;
+}) => {
+  const fmt = (t: number | null) =>
+    t ? `${Math.max(0, Math.round((Date.now() - t) / 1000))}s` : '—';
+  const dotColor =
+    pipelineState === 'processing' ? '#c084fc'
+    : pipelineState === 'capturing' ? '#f59e0b'
+    : 'rgba(255,255,255,0.25)';
+  return (
+    <div className="flex items-center gap-2 text-[9px] tracking-[0.18em] uppercase text-muted-foreground/60 font-mono">
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${pipelineState === 'capturing' ? 'animate-pulse' : ''}`}
+        style={{ background: dotColor, boxShadow: `0 0 6px ${dotColor}` }}
+      />
+      <span>{pipelineState}</span>
+      <span className="opacity-50">· frame {fmt(lastFrameAt)} ago</span>
+      <span className="opacity-50">· desc {fmt(lastAutodescAt)} ago</span>
+    </div>
+  );
+};
+
 export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
   const { camActive, tryCamera, stopCamera, camStreamRef, logVisualObservation, toast, lensActive, setLensActive, snapAndAsk } = useAria();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -21,6 +47,12 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [modelLoading, setModelLoading] = useState(false);
   const [modelReady, setModelReady] = useState(false);
+  // [AriaVision] observability state
+  const [lastFrameAt, setLastFrameAt] = useState<number | null>(null);
+  const [lastAutodescAt, setLastAutodescAt] = useState<number | null>(null);
+  const [pipelineState, setPipelineState] = useState<'idle' | 'capturing' | 'processing'>('idle');
+  const autodescPendingRef = useRef(false);
+  const captureCountRef = useRef(0);
 
   // Load COCO-SSD model
   const loadModel = useCallback(async () => {
@@ -71,6 +103,15 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
       }
 
       try {
+        setPipelineState('capturing');
+        const vidW = videoRef.current.videoWidth;
+        const vidH = videoRef.current.videoHeight;
+        captureCountRef.current++;
+        // Throttle [AriaVision] log so it doesn't spam — log every ~30th frame
+        if (captureCountRef.current % 30 === 0) {
+          console.log(`[AriaVision] captureFrame fired t=${Date.now()} dim=${vidW}×${vidH} sent=yes`);
+        }
+        setLastFrameAt(Date.now());
         const predictions = await modelRef.current.detect(videoRef.current);
         const highConf: Detection[] = predictions
           .filter((p: any) => p.score > 0.5)
@@ -109,8 +150,10 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
             }
           }
         }
+        setPipelineState('idle');
       } catch (e) {
         console.warn('Detection error:', e);
+        setPipelineState('idle');
       }
 
       animRef.current = requestAnimationFrame(detect);
@@ -128,7 +171,14 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
       const currentObjects = detections.map(d => d.label).join(', ');
       if (!currentObjects) return;
       if (currentObjects === lastObjectsRef.current) return;
+      if (autodescPendingRef.current) {
+        console.log(`[AriaVision] autodesc skipped t=${Date.now()} reason=previous-pending`);
+        return;
+      }
       lastObjectsRef.current = currentObjects;
+      console.log(`[AriaVision] autodesc scheduled t=${Date.now()} trigger=timer pending=${autodescPendingRef.current}`);
+      autodescPendingRef.current = true;
+      setPipelineState('processing');
       const canvas = document.createElement('canvas');
       const vid = videoRef.current;
       const sc = Math.min(512 / vid.videoWidth, 512 / vid.videoHeight, 1);
@@ -136,17 +186,25 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
       canvas.height = Math.round(vid.videoHeight * sc);
       canvas.getContext('2d')!.drawImage(vid, 0, 0, canvas.width, canvas.height);
       const b64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
-      if (!b64 || b64.length < 500) return;
+      if (!b64 || b64.length < 500) { autodescPendingRef.current = false; setPipelineState('idle'); return; }
       const width = vid.videoWidth;
       const withPositions = detections.map(d => {
         const cx = d.bbox[0] + d.bbox[2] / 2;
         const zone = cx < width / 3 ? 'left' : cx > (width * 2) / 3 ? 'right' : 'center';
         return `${d.label} (${zone}, ${(d.score * 100).toFixed(0)}% confidence)`;
       }).join(', ');
-      await snapAndAsk(`[Lens Mode Active] COCO-SSD detected: ${withPositions}. Now look at the actual image and give a rich, specific description. Identify: any people and what they're doing/wearing/expressing, any animals and their breed/species if possible, all notable objects and their context, spatial relationships, lighting and mood. Be specific — not generic. 2-3 sentences max.`);
+      try {
+        await snapAndAsk(`[Lens Mode Active] COCO-SSD detected: ${withPositions}. Now look at the actual image and give a rich, specific description. Identify: any people and what they're doing/wearing/expressing, any animals and their breed/species if possible, all notable objects and their context, spatial relationships, lighting and mood. Be specific — not generic. 2-3 sentences max.`);
+        setLastAutodescAt(Date.now());
+        console.log(`[AriaVision] autodesc completed t=${Date.now()}`);
+      } finally {
+        autodescPendingRef.current = false;
+        setPipelineState('idle');
+      }
     }, 45000);
     return () => clearInterval(interval);
   }, [lensActive, modelReady, detections, snapAndAsk]);
+
 
   // Clear logged set periodically so repeated objects get re-logged
   useEffect(() => {
@@ -160,17 +218,35 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
       {!hideHeader && (
       <div className="px-4 md:px-5 py-3 border-b border-border flex items-center justify-between bg-background/85 backdrop-blur-xl flex-shrink-0">
         <h2 className="aria-serif text-base md:text-lg font-light text-aria-lav tracking-wider">Lens Mode</h2>
-        <button
-          onClick={lensActive ? stopLens : startLens}
-          className={`px-4 py-1.5 rounded-lg border text-xs tracking-wider uppercase transition-all ${
-            lensActive
-              ? 'bg-accent/15 border-accent/50 text-accent'
-              : 'bg-secondary/10 border-secondary/30 text-secondary'
-          }`}
-        >
-          {modelLoading ? '⏳ Loading...' : lensActive ? '⏹ Stop' : '👁 Activate'}
-        </button>
+        <div className="flex items-center gap-2">
+          {lensActive && (
+            <VisionStatusIndicator
+              pipelineState={pipelineState}
+              lastFrameAt={lastFrameAt}
+              lastAutodescAt={lastAutodescAt}
+            />
+          )}
+          <button
+            onClick={lensActive ? stopLens : startLens}
+            className={`px-4 py-1.5 rounded-lg border text-xs tracking-wider uppercase transition-all ${
+              lensActive
+                ? 'bg-accent/15 border-accent/50 text-accent'
+                : 'bg-secondary/10 border-secondary/30 text-secondary'
+            }`}
+          >
+            {modelLoading ? '⏳ Loading...' : lensActive ? '⏹ Stop' : '👁 Activate'}
+          </button>
+        </div>
       </div>
+      )}
+      {hideHeader && lensActive && (
+        <div className="px-4 md:px-5 py-2 border-b border-border/30 bg-background/60 backdrop-blur-xl flex-shrink-0 flex justify-end">
+          <VisionStatusIndicator
+            pipelineState={pipelineState}
+            lastFrameAt={lastFrameAt}
+            lastAutodescAt={lastAutodescAt}
+          />
+        </div>
       )}
 
       <div className="flex-1 overflow-y-auto min-h-0 px-4 md:px-5 py-4">

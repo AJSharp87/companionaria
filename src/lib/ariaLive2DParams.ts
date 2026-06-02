@@ -214,3 +214,17 @@ export const getAriaGlow = (orbState: string, emotionState: string): string => {
   const state = orbState !== 'idle' ? orbState : (emotionState || 'idle');
   return ARIA_GLOW_PALETTE[state] || ARIA_GLOW_PALETTE.idle;
 };
+
+/**
+ * Single source of truth for Aria's active color.
+ * Returns a CSS rgb() string usable directly in style values, borders, shadows.
+ * Use this everywhere a state-driven color appears so all UI updates together.
+ */
+export const getAriaStateColor = (orbState: string, emotionState: string): string => {
+  return `rgb(${getAriaGlow(orbState, emotionState)})`;
+};
+
+/** Same as getAriaStateColor but returns the raw "r,g,b" triplet for rgba() composition. */
+export const getAriaStateRGB = (orbState: string, emotionState: string): string => {
+  return getAriaGlow(orbState, emotionState);
+};
