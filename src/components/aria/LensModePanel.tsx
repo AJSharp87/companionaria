@@ -21,6 +21,12 @@ export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [modelLoading, setModelLoading] = useState(false);
   const [modelReady, setModelReady] = useState(false);
+  // [AriaVision] observability state
+  const [lastFrameAt, setLastFrameAt] = useState<number | null>(null);
+  const [lastAutodescAt, setLastAutodescAt] = useState<number | null>(null);
+  const [pipelineState, setPipelineState] = useState<'idle' | 'capturing' | 'processing'>('idle');
+  const autodescPendingRef = useRef(false);
+  const captureCountRef = useRef(0);
 
   // Load COCO-SSD model
   const loadModel = useCallback(async () => {
