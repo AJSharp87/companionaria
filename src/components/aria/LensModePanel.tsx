@@ -9,6 +9,32 @@ interface Detection {
 
 interface LensModePanelProps { hideHeader?: boolean; }
 
+const VisionStatusIndicator = ({
+  pipelineState, lastFrameAt, lastAutodescAt,
+}: {
+  pipelineState: 'idle' | 'capturing' | 'processing';
+  lastFrameAt: number | null;
+  lastAutodescAt: number | null;
+}) => {
+  const fmt = (t: number | null) =>
+    t ? `${Math.max(0, Math.round((Date.now() - t) / 1000))}s` : '—';
+  const dotColor =
+    pipelineState === 'processing' ? '#c084fc'
+    : pipelineState === 'capturing' ? '#f59e0b'
+    : 'rgba(255,255,255,0.25)';
+  return (
+    <div className="flex items-center gap-2 text-[9px] tracking-[0.18em] uppercase text-muted-foreground/60 font-mono">
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${pipelineState === 'capturing' ? 'animate-pulse' : ''}`}
+        style={{ background: dotColor, boxShadow: `0 0 6px ${dotColor}` }}
+      />
+      <span>{pipelineState}</span>
+      <span className="opacity-50">· frame {fmt(lastFrameAt)} ago</span>
+      <span className="opacity-50">· desc {fmt(lastAutodescAt)} ago</span>
+    </div>
+  );
+};
+
 export const LensModePanel = ({ hideHeader = false }: LensModePanelProps) => {
   const { camActive, tryCamera, stopCamera, camStreamRef, logVisualObservation, toast, lensActive, setLensActive, snapAndAsk } = useAria();
   const videoRef = useRef<HTMLVideoElement>(null);
