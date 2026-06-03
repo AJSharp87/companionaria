@@ -34,6 +34,7 @@ export const AriaLayout = () => {
 
 const AriaLayoutInner = () => {
   const ctx = useAria();
+  const { session } = useAuth();
   const { isSetupComplete, activePanel, toastMsg, syncStatus, orbState, emotionState } = ctx;
   const PanelComponent = panels[activePanel] || ChatPanel;
 
