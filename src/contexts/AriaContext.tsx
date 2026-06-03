@@ -286,6 +286,11 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const tryConnect = useCallback(async (url: string, anon: string) => {
     try {
       dbRef.current = supabase;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setSyncStatus({ state: 'err', label: 'Not signed in' });
+        return false;
+      }
       const { error } = await dbRef.current.from('aria_config').select('id').limit(1);
       if (error) throw error;
       setSyncStatus({ state: 'ok', label: 'Supabase connected' });
@@ -1573,9 +1578,19 @@ const ingestUrl = useCallback(async (url: string) => {
       if (lc.elevenVoiceId) { setElevenVoiceId(lc.elevenVoiceId); elevenVoiceIdRef.current = lc.elevenVoiceId; }
       if (lc.settings) { setSettings(prev => ({ ...prev, ...lc.settings })); settingsRef.current = { ...DEFAULT_SETTINGS, ...lc.settings }; }
     }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        const ok = await tryConnect(HARDCODED_SB_URL, HARDCODED_SB_ANON);
+        if (ok) await bootApp();
+      } else {
+        setSyncStatus({ state: 'err', label: 'Not signed in' });
+        setIsSetupComplete(false);
+      }
+    });
     tryConnect(HARDCODED_SB_URL, HARDCODED_SB_ANON).then(async (ok) => {
       if (ok) await bootApp();
     });
+    return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

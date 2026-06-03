@@ -13,6 +13,7 @@ import { WebIngestionPanel } from './WebIngestionPanel';
 import { VisionPanel } from './VisionPanel';
 import { useAriaLive2DSync } from '@/hooks/useAriaLive2DSync';
 import { getAriaStateRGB } from '@/lib/ariaLive2DParams';
+import { useAuth } from '@/hooks/useAuth';
 
 const panels: Record<string, React.FC> = {
   chat: ChatPanel,
@@ -33,6 +34,7 @@ export const AriaLayout = () => {
 
 const AriaLayoutInner = () => {
   const ctx = useAria();
+  const { session } = useAuth();
   const { isSetupComplete, activePanel, toastMsg, syncStatus, orbState, emotionState } = ctx;
   const PanelComponent = panels[activePanel] || ChatPanel;
 
@@ -70,7 +72,7 @@ const AriaLayoutInner = () => {
 
   return (
     <>
-      {!isSetupComplete && syncStatus.state !== 'busy' && <SetupOverlay />}
+      {session && !isSetupComplete && syncStatus.state !== 'busy' && <SetupOverlay />}
       <SidebarProvider>
         <div className="h-screen flex w-full overflow-hidden">
           <AriaSidebar />
