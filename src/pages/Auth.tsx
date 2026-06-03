@@ -43,7 +43,7 @@ const Auth = () => {
             ARIA
           </h1>
           <p className="text-muted-foreground text-sm" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-            {isLogin ? 'Welcome back.' : 'Create your account.'}
+            Welcome back.
           </p>
         </div>
 
@@ -76,18 +76,12 @@ const Auth = () => {
               background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))',
             }}
           >
-            {loading ? '...' : isLogin ? 'Sign In' : 'Create Account'}
+            {loading ? '...' : 'Sign In'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-          {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-primary hover:underline"
-          >
-            {isLogin ? 'Sign up' : 'Sign in'}
-          </button>
+        <p className="text-center text-xs text-muted-foreground/60" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+          Sign-ups are disabled. Contact the owner for access.
         </p>
       </div>
     </div>
