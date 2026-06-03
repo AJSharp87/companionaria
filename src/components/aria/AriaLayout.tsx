@@ -13,6 +13,7 @@ import { WebIngestionPanel } from './WebIngestionPanel';
 import { VisionPanel } from './VisionPanel';
 import { useAriaLive2DSync } from '@/hooks/useAriaLive2DSync';
 import { getAriaStateRGB } from '@/lib/ariaLive2DParams';
+import { useAuth } from '@/hooks/useAuth';
 
 const panels: Record<string, React.FC> = {
   chat: ChatPanel,
