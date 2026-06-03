@@ -1578,9 +1578,19 @@ const ingestUrl = useCallback(async (url: string) => {
       if (lc.elevenVoiceId) { setElevenVoiceId(lc.elevenVoiceId); elevenVoiceIdRef.current = lc.elevenVoiceId; }
       if (lc.settings) { setSettings(prev => ({ ...prev, ...lc.settings })); settingsRef.current = { ...DEFAULT_SETTINGS, ...lc.settings }; }
     }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        const ok = await tryConnect(HARDCODED_SB_URL, HARDCODED_SB_ANON);
+        if (ok) await bootApp();
+      } else {
+        setSyncStatus({ state: 'err', label: 'Not signed in' });
+        setIsSetupComplete(false);
+      }
+    });
     tryConnect(HARDCODED_SB_URL, HARDCODED_SB_ANON).then(async (ok) => {
       if (ok) await bootApp();
     });
+    return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
