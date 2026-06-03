@@ -286,6 +286,11 @@ export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const tryConnect = useCallback(async (url: string, anon: string) => {
     try {
       dbRef.current = supabase;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setSyncStatus({ state: 'err', label: 'Not signed in' });
+        return false;
+      }
       const { error } = await dbRef.current.from('aria_config').select('id').limit(1);
       if (error) throw error;
       setSyncStatus({ state: 'ok', label: 'Supabase connected' });
