@@ -72,7 +72,7 @@ const AriaLayoutInner = () => {
 
   return (
     <>
-      {!isSetupComplete && syncStatus.state !== 'busy' && <SetupOverlay />}
+      {session && !isSetupComplete && syncStatus.state !== 'busy' && <SetupOverlay />}
       <SidebarProvider>
         <div className="h-screen flex w-full overflow-hidden">
           <AriaSidebar />
