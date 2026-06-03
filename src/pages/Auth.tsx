@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 
 const Auth = () => {
   const { session, loading: authLoading } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,17 +18,8 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        toast({
-          title: 'Account created',
-          description: 'Check your email to confirm, then sign in.',
-        });
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
     } catch (err: any) {
       toast({
         title: 'Error',
