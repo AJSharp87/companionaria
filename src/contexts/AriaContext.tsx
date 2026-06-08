@@ -479,24 +479,21 @@ VOICE: Use ${n}'s name naturally. Match energy. NEVER break character. You are A
       const hist = chatMsgsRef.current.slice(-6)
         .filter(m => typeof m.content === 'string' && m.type !== 'vision')
         .map(m => ({ role: m.role, content: m.content }));
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json', 'x-api-key': key,
-          'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true',
+      const { data, error } = await supabase.functions.invoke('anthropic-proxy', {
+        body: {
+          payload: {
+            model: 'claude-sonnet-4-6', max_tokens: 1024, system: buildSys(),
+            messages: [...hist, {
+              role: 'user', content: [
+                { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imgB64 } },
+                { type: 'text', text: prompt },
+              ],
+            }],
+          },
         },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 1024, system: buildSys(),
-          messages: [...hist, {
-            role: 'user', content: [
-              { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imgB64 } },
-              { type: 'text', text: prompt },
-            ],
-          }],
-        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error?.message || 'Vision API ' + res.status);
+      if (error) throw new Error(error.message || 'Vision proxy error');
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : (data.error.message || 'Vision API error'));
       const txt = data.content?.map((b: any) => b.text || '').join('') || 'I can see you.';
       setChatMsgs(prev => [...prev, { role: 'assistant', content: txt, type: 'vision' }]);
       saveMsg('assistant', txt, 'vision');
