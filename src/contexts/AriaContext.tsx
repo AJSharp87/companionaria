@@ -419,23 +419,18 @@ VOICE: Use ${n}'s name naturally. Match energy. NEVER break character. You are A
     }
 
     const reqBody: any = { model: 'claude-sonnet-4-6', max_tokens: 1500, system: buildSys(), messages: msgs };
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    };
+    let beta: string | undefined;
     if (settingsRef.current.websearch) {
       reqBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }];
-      headers['anthropic-beta'] = 'web-search-2025-03-05';
+      beta = 'web-search-2025-03-05';
     }
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers, body: JSON.stringify(reqBody),
+      const { data, error } = await supabase.functions.invoke('anthropic-proxy', {
+        body: { payload: reqBody, beta },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error?.message || 'API error ' + res.status);
+      if (error) throw new Error(error.message || 'anthropic-proxy error');
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : (data.error.message || 'API error'));
       const txt = data.content?.filter((b: any) => b.type === 'text').map((b: any) => b.text || '').join('') || "I'm here. Say that again?";
 
       // Emotion detection
