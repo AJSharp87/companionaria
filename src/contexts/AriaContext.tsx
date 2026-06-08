@@ -150,7 +150,7 @@ export const useAriaOptional = () => useContext(AriaContext);
 export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dbRef = useRef<SupabaseClient | null>(null);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState('server');
   const HARDCODED_SB_URL = 'https://qjlrytmjuxfzlcpfqndr.supabase.co';
   const HARDCODED_SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqbHJ5dG1qdXhmemxjcGZxbmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODY0OTcsImV4cCI6MjA5MTg2MjQ5N30.i24pMLTNkNpZRUBR-HYa1rZ9mwRCSJ0K03PqYX9bapE';
   const [sbUrl, setSbUrl] = useState(HARDCODED_SB_URL);
@@ -419,23 +419,18 @@ VOICE: Use ${n}'s name naturally. Match energy. NEVER break character. You are A
     }
 
     const reqBody: any = { model: 'claude-sonnet-4-6', max_tokens: 1500, system: buildSys(), messages: msgs };
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    };
+    let beta: string | undefined;
     if (settingsRef.current.websearch) {
       reqBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }];
-      headers['anthropic-beta'] = 'web-search-2025-03-05';
+      beta = 'web-search-2025-03-05';
     }
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers, body: JSON.stringify(reqBody),
+      const { data, error } = await supabase.functions.invoke('anthropic-proxy', {
+        body: { payload: reqBody, beta },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error?.message || 'API error ' + res.status);
+      if (error) throw new Error(error.message || 'anthropic-proxy error');
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : (data.error.message || 'API error'));
       const txt = data.content?.filter((b: any) => b.type === 'text').map((b: any) => b.text || '').join('') || "I'm here. Say that again?";
 
       // Emotion detection
@@ -484,24 +479,21 @@ VOICE: Use ${n}'s name naturally. Match energy. NEVER break character. You are A
       const hist = chatMsgsRef.current.slice(-6)
         .filter(m => typeof m.content === 'string' && m.type !== 'vision')
         .map(m => ({ role: m.role, content: m.content }));
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json', 'x-api-key': key,
-          'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true',
+      const { data, error } = await supabase.functions.invoke('anthropic-proxy', {
+        body: {
+          payload: {
+            model: 'claude-sonnet-4-6', max_tokens: 1024, system: buildSys(),
+            messages: [...hist, {
+              role: 'user', content: [
+                { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imgB64 } },
+                { type: 'text', text: prompt },
+              ],
+            }],
+          },
         },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 1024, system: buildSys(),
-          messages: [...hist, {
-            role: 'user', content: [
-              { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imgB64 } },
-              { type: 'text', text: prompt },
-            ],
-          }],
-        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error?.message || 'Vision API ' + res.status);
+      if (error) throw new Error(error.message || 'Vision proxy error');
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : (data.error.message || 'Vision API error'));
       const txt = data.content?.map((b: any) => b.text || '').join('') || 'I can see you.';
       setChatMsgs(prev => [...prev, { role: 'assistant', content: txt, type: 'vision' }]);
       saveMsg('assistant', txt, 'vision');
@@ -535,12 +527,12 @@ Aria: ${aTxt.substring(0, 300)}
 
 Already known:
 ${knownStr}`;
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, messages: [{ role: 'user', content: prompt }] }),
+      const { data, error } = await supabase.functions.invoke('anthropic-proxy', {
+        body: {
+          payload: { model: 'claude-haiku-4-5-20251001', max_tokens: 400, messages: [{ role: 'user', content: prompt }] },
+        },
       });
-      const data = await res.json();
+      if (error || data?.error) return;
       let raw = data.content?.[0]?.text || '';
       raw = raw.replace(/```json\s*/g, '').replace(/```/g, '').trim();
       const obj = JSON.parse(raw);
@@ -618,11 +610,10 @@ ${knownStr}`;
     stopSpeakFn();
     const clean = txt.replace(/[*_#`◆▶•◇]/g, '').replace(/\n+/g, ' ').trim();
     if (!clean) return;
-    const ek = elevenKeyRef.current;
     const evid = elevenVoiceIdRef.current;
-    if (!ek || !evid) {
-      console.warn('[Voice] Missing ElevenLabs credentials', { hasKey: !!ek, hasVoiceId: !!evid });
-      toast('Add your ElevenLabs API key and Voice ID in Settings to enable voice', 'err');
+    if (!evid) {
+      console.warn('[Voice] Missing ElevenLabs Voice ID');
+      toast('Add your ElevenLabs Voice ID in Settings to enable voice', 'err');
       return;
     }
     // Ensure audio is unlocked (may no-op if already unlocked or no gesture yet)
@@ -635,30 +626,20 @@ ${knownStr}`;
       const chunks = splitChunks(clean, 400);
       for (const ch of chunks) {
         if (!isSpeakingRef.current) break;
-        stopCtrlRef.current = new AbortController();
-        const res = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + evid, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'xi-api-key': ek, 'Accept': 'audio/mpeg' },
-          body: JSON.stringify({
-            text: ch, model_id: 'eleven_turbo_v2_5',
+        const { data, error } = await supabase.functions.invoke('elevenlabs-tts', {
+          body: {
+            voiceId: evid,
+            text: ch,
+            model_id: 'eleven_turbo_v2_5',
             voice_settings: { stability: 0.48, similarity_boost: 0.88, style: 0.52, use_speaker_boost: true },
-          }),
-          signal: stopCtrlRef.current.signal,
+          },
         });
         if (!isSpeakingRef.current) return;
-        const ctype = res.headers.get('content-type') || '';
-        console.log('[Voice] ElevenLabs response', { status: res.status, contentType: ctype });
-        if (!res.ok || !ctype.includes('audio')) {
-          let detail = '';
-          try {
-            const txt = await res.text();
-            try { const j = JSON.parse(txt); detail = j?.detail?.message || j?.detail?.status || j?.detail || txt; }
-            catch { detail = txt; }
-          } catch {}
-          console.error('[Voice] ElevenLabs error body:', detail);
-          throw new Error(`ElevenLabs ${res.status}: ${typeof detail === 'string' ? detail.slice(0, 200) : JSON.stringify(detail).slice(0, 200)}`);
+        if (error) {
+          console.error('[Voice] elevenlabs-tts error', error);
+          throw new Error(error.message || 'ElevenLabs proxy error');
         }
-        const blob = await res.blob();
+        const blob = data instanceof Blob ? data : new Blob([data], { type: 'audio/mpeg' });
         if (!blob.size) throw new Error('ElevenLabs returned empty audio');
         const url = URL.createObjectURL(blob);
         if (!isSpeakingRef.current) { URL.revokeObjectURL(url); return; }
@@ -1172,11 +1153,8 @@ Be specific and personal. Address ${profileRef.current.name || 'them'} directly.
     toast('Added ' + name + ' ✓', 'ok');
   }, [dbSet, toast]);
 
-  // ── Keys ──
-  const saveKeys = useCallback(async (newApiKey: string, newSbUrl: string, newSbAnon: string) => {
-    if (!newApiKey) { toast('Anthropic key is empty', 'err'); return false; }
-    setApiKey(newApiKey);
-    apiKeyRef.current = newApiKey;
+  // ── Keys (Anthropic & ElevenLabs API keys live in Supabase Edge Function secrets — never stored client-side) ──
+  const saveKeys = useCallback(async (_newApiKey: string, newSbUrl: string, newSbAnon: string) => {
     if (newSbUrl && newSbAnon && (newSbUrl !== sbUrl || newSbAnon !== sbAnon)) {
       let cleanU = newSbUrl;
       if (!cleanU.startsWith('http')) cleanU = 'https://' + cleanU;
@@ -1189,21 +1167,17 @@ Be specific and personal. Address ${profileRef.current.name || 'them'} directly.
       setSbAnon(newSbAnon);
       sbAnonRef.current = newSbAnon;
     }
-    await dbSet('aria_config', 'anthropic_key', newApiKey);
     lsSave();
-    toast('Keys saved ✓', 'ok');
+    toast('Settings saved ✓', 'ok');
     return true;
-  }, [sbUrl, sbAnon, tryConnect, dbSet, lsSave, toast]);
+  }, [sbUrl, sbAnon, tryConnect, lsSave, toast]);
 
-  const saveVoiceSettings = useCallback(async (key: string, voiceId: string) => {
-    setElevenKey(key);
-    elevenKeyRef.current = key;
+  const saveVoiceSettings = useCallback(async (_key: string, voiceId: string) => {
     setElevenVoiceId(voiceId);
     elevenVoiceIdRef.current = voiceId;
-    await dbSet('aria_config', 'eleven_key', key);
     await dbSet('aria_config', 'eleven_voice_id', voiceId);
     lsSave();
-    toast('Voice settings saved ✓', 'ok');
+    toast('Voice ID saved ✓', 'ok');
   }, [dbSet, lsSave, toast]);
 
   // ── File Processing ──
@@ -1502,18 +1476,14 @@ const ingestUrl = useCallback(async (url: string) => {
     setSyncStatus({ state: 'busy', label: 'Loading Aria...' });
     setOrbState('thinking');
     try {
-      const [prof, memRows, storedKey, storedEleven, storedVoiceId, storedSet, msgRes] = await Promise.all([
+      const [prof, memRows, storedVoiceId, storedSet, msgRes] = await Promise.all([
         dbGet('aria_config', 'profile'),
         dbAll('aria_memory'),
-        dbGet('aria_config', 'anthropic_key'),
-        dbGet('aria_config', 'eleven_key'),
         dbGet('aria_config', 'eleven_voice_id'),
         dbGet('aria_config', 'settings'),
         dbRef.current!.from('aria_messages').select('*').order('created_at', { ascending: true }).limit(100),
       ]);
       if (prof) { setProfile(prof); profileRef.current = prof; }
-      if (storedKey) { setApiKey(storedKey); apiKeyRef.current = storedKey; }
-      if (storedEleven) { setElevenKey(storedEleven); elevenKeyRef.current = storedEleven; }
       if (storedVoiceId) { setElevenVoiceId(storedVoiceId); elevenVoiceIdRef.current = storedVoiceId; }
       const storedDgKey = await dbGet('aria_config', 'deepgram_key');
       if (storedDgKey) { setDeepgramKey(storedDgKey); deepgramKeyRef.current = storedDgKey; }
@@ -1529,15 +1499,14 @@ const ingestUrl = useCallback(async (url: string) => {
       setChatMsgs(loaded);
       chatMsgsRef.current = loaded;
       const hadMsgs = rows.length > 0;
-      const hasAnthropicKey = Boolean(storedKey || apiKeyRef.current);
       if (hadMsgs) setHasGreeted(true);
-      setIsSetupComplete(hasAnthropicKey);
+      setIsSetupComplete(true);
       setSyncStatus({ state: 'ok', label: 'Supabase connected' });
       lsSave();
       setOrbState('idle');
       startProactive();
       if (storedSet?.autodesc !== false) startPassiveDesc();
-      if (hasAnthropicKey && !hadMsgs) setTimeout(() => greet(), 600);
+      if (!hadMsgs) setTimeout(() => greet(), 600);
     } catch (e) {
       console.error('bootApp error:', e);
       setSyncStatus({ state: 'err', label: 'Loading failed' });
@@ -1545,9 +1514,8 @@ const ingestUrl = useCallback(async (url: string) => {
     }
   }, [dbGet, dbAll, lsSave, greet]);
 
-  // ── Setup ──
-  const runSetup = useCallback(async (anthropicKey: string, supaUrl: string, supaAnon: string) => {
-    if (!anthropicKey) { toast('Please paste your Anthropic API key.', 'err'); return false; }
+  // ── Setup (Anthropic key now lives in Supabase Edge Function secrets; arg ignored) ──
+  const runSetup = useCallback(async (_anthropicKey: string, supaUrl: string, supaAnon: string) => {
     if (!supaUrl) { toast('Please paste your Supabase Project URL.', 'err'); return false; }
     if (!supaAnon) { toast('Please paste your Supabase Anon Key.', 'err'); return false; }
     let cleanUrl = supaUrl.trim();
@@ -1555,18 +1523,15 @@ const ingestUrl = useCallback(async (url: string) => {
     cleanUrl = cleanUrl.replace(/\/+$/, '');
     const ok = await tryConnect(cleanUrl, supaAnon);
     if (!ok) { toast('Could not connect to Supabase.', 'err'); return false; }
-    setApiKey(anthropicKey);
-    apiKeyRef.current = anthropicKey;
     setSbUrl(cleanUrl);
     sbUrlRef.current = cleanUrl;
     setSbAnon(supaAnon);
     sbAnonRef.current = supaAnon;
-    await dbSet('aria_config', 'anthropic_key', anthropicKey);
     lsSave();
     setIsSetupComplete(true);
     await bootApp();
     return true;
-  }, [tryConnect, dbSet, lsSave, bootApp, toast]);
+  }, [tryConnect, lsSave, bootApp, toast]);
 
   // ── Auto-boot: always connect using hardcoded credentials, overlay localStorage extras ──
   useEffect(() => {
