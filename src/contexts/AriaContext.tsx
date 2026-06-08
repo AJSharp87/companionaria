@@ -610,11 +610,10 @@ ${knownStr}`;
     stopSpeakFn();
     const clean = txt.replace(/[*_#`◆▶•◇]/g, '').replace(/\n+/g, ' ').trim();
     if (!clean) return;
-    const ek = elevenKeyRef.current;
     const evid = elevenVoiceIdRef.current;
-    if (!ek || !evid) {
-      console.warn('[Voice] Missing ElevenLabs credentials', { hasKey: !!ek, hasVoiceId: !!evid });
-      toast('Add your ElevenLabs API key and Voice ID in Settings to enable voice', 'err');
+    if (!evid) {
+      console.warn('[Voice] Missing ElevenLabs Voice ID');
+      toast('Add your ElevenLabs Voice ID in Settings to enable voice', 'err');
       return;
     }
     // Ensure audio is unlocked (may no-op if already unlocked or no gesture yet)
@@ -627,30 +626,20 @@ ${knownStr}`;
       const chunks = splitChunks(clean, 400);
       for (const ch of chunks) {
         if (!isSpeakingRef.current) break;
-        stopCtrlRef.current = new AbortController();
-        const res = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + evid, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'xi-api-key': ek, 'Accept': 'audio/mpeg' },
-          body: JSON.stringify({
-            text: ch, model_id: 'eleven_turbo_v2_5',
+        const { data, error } = await supabase.functions.invoke('elevenlabs-tts', {
+          body: {
+            voiceId: evid,
+            text: ch,
+            model_id: 'eleven_turbo_v2_5',
             voice_settings: { stability: 0.48, similarity_boost: 0.88, style: 0.52, use_speaker_boost: true },
-          }),
-          signal: stopCtrlRef.current.signal,
+          },
         });
         if (!isSpeakingRef.current) return;
-        const ctype = res.headers.get('content-type') || '';
-        console.log('[Voice] ElevenLabs response', { status: res.status, contentType: ctype });
-        if (!res.ok || !ctype.includes('audio')) {
-          let detail = '';
-          try {
-            const txt = await res.text();
-            try { const j = JSON.parse(txt); detail = j?.detail?.message || j?.detail?.status || j?.detail || txt; }
-            catch { detail = txt; }
-          } catch {}
-          console.error('[Voice] ElevenLabs error body:', detail);
-          throw new Error(`ElevenLabs ${res.status}: ${typeof detail === 'string' ? detail.slice(0, 200) : JSON.stringify(detail).slice(0, 200)}`);
+        if (error) {
+          console.error('[Voice] elevenlabs-tts error', error);
+          throw new Error(error.message || 'ElevenLabs proxy error');
         }
-        const blob = await res.blob();
+        const blob = data instanceof Blob ? data : new Blob([data], { type: 'audio/mpeg' });
         if (!blob.size) throw new Error('ElevenLabs returned empty audio');
         const url = URL.createObjectURL(blob);
         if (!isSpeakingRef.current) { URL.revokeObjectURL(url); return; }
