@@ -1153,11 +1153,8 @@ Be specific and personal. Address ${profileRef.current.name || 'them'} directly.
     toast('Added ' + name + ' ✓', 'ok');
   }, [dbSet, toast]);
 
-  // ── Keys ──
-  const saveKeys = useCallback(async (newApiKey: string, newSbUrl: string, newSbAnon: string) => {
-    if (!newApiKey) { toast('Anthropic key is empty', 'err'); return false; }
-    setApiKey(newApiKey);
-    apiKeyRef.current = newApiKey;
+  // ── Keys (Anthropic & ElevenLabs API keys live in Supabase Edge Function secrets — never stored client-side) ──
+  const saveKeys = useCallback(async (_newApiKey: string, newSbUrl: string, newSbAnon: string) => {
     if (newSbUrl && newSbAnon && (newSbUrl !== sbUrl || newSbAnon !== sbAnon)) {
       let cleanU = newSbUrl;
       if (!cleanU.startsWith('http')) cleanU = 'https://' + cleanU;
@@ -1170,21 +1167,17 @@ Be specific and personal. Address ${profileRef.current.name || 'them'} directly.
       setSbAnon(newSbAnon);
       sbAnonRef.current = newSbAnon;
     }
-    await dbSet('aria_config', 'anthropic_key', newApiKey);
     lsSave();
-    toast('Keys saved ✓', 'ok');
+    toast('Settings saved ✓', 'ok');
     return true;
-  }, [sbUrl, sbAnon, tryConnect, dbSet, lsSave, toast]);
+  }, [sbUrl, sbAnon, tryConnect, lsSave, toast]);
 
-  const saveVoiceSettings = useCallback(async (key: string, voiceId: string) => {
-    setElevenKey(key);
-    elevenKeyRef.current = key;
+  const saveVoiceSettings = useCallback(async (_key: string, voiceId: string) => {
     setElevenVoiceId(voiceId);
     elevenVoiceIdRef.current = voiceId;
-    await dbSet('aria_config', 'eleven_key', key);
     await dbSet('aria_config', 'eleven_voice_id', voiceId);
     lsSave();
-    toast('Voice settings saved ✓', 'ok');
+    toast('Voice ID saved ✓', 'ok');
   }, [dbSet, lsSave, toast]);
 
   // ── File Processing ──
