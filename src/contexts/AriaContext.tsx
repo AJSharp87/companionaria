@@ -1476,18 +1476,14 @@ const ingestUrl = useCallback(async (url: string) => {
     setSyncStatus({ state: 'busy', label: 'Loading Aria...' });
     setOrbState('thinking');
     try {
-      const [prof, memRows, storedKey, storedEleven, storedVoiceId, storedSet, msgRes] = await Promise.all([
+      const [prof, memRows, storedVoiceId, storedSet, msgRes] = await Promise.all([
         dbGet('aria_config', 'profile'),
         dbAll('aria_memory'),
-        dbGet('aria_config', 'anthropic_key'),
-        dbGet('aria_config', 'eleven_key'),
         dbGet('aria_config', 'eleven_voice_id'),
         dbGet('aria_config', 'settings'),
         dbRef.current!.from('aria_messages').select('*').order('created_at', { ascending: true }).limit(100),
       ]);
       if (prof) { setProfile(prof); profileRef.current = prof; }
-      if (storedKey) { setApiKey(storedKey); apiKeyRef.current = storedKey; }
-      if (storedEleven) { setElevenKey(storedEleven); elevenKeyRef.current = storedEleven; }
       if (storedVoiceId) { setElevenVoiceId(storedVoiceId); elevenVoiceIdRef.current = storedVoiceId; }
       const storedDgKey = await dbGet('aria_config', 'deepgram_key');
       if (storedDgKey) { setDeepgramKey(storedDgKey); deepgramKeyRef.current = storedDgKey; }
@@ -1503,15 +1499,14 @@ const ingestUrl = useCallback(async (url: string) => {
       setChatMsgs(loaded);
       chatMsgsRef.current = loaded;
       const hadMsgs = rows.length > 0;
-      const hasAnthropicKey = Boolean(storedKey || apiKeyRef.current);
       if (hadMsgs) setHasGreeted(true);
-      setIsSetupComplete(hasAnthropicKey);
+      setIsSetupComplete(true);
       setSyncStatus({ state: 'ok', label: 'Supabase connected' });
       lsSave();
       setOrbState('idle');
       startProactive();
       if (storedSet?.autodesc !== false) startPassiveDesc();
-      if (hasAnthropicKey && !hadMsgs) setTimeout(() => greet(), 600);
+      if (!hadMsgs) setTimeout(() => greet(), 600);
     } catch (e) {
       console.error('bootApp error:', e);
       setSyncStatus({ state: 'err', label: 'Loading failed' });
