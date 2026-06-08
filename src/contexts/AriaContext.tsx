@@ -1514,9 +1514,8 @@ const ingestUrl = useCallback(async (url: string) => {
     }
   }, [dbGet, dbAll, lsSave, greet]);
 
-  // ── Setup ──
-  const runSetup = useCallback(async (anthropicKey: string, supaUrl: string, supaAnon: string) => {
-    if (!anthropicKey) { toast('Please paste your Anthropic API key.', 'err'); return false; }
+  // ── Setup (Anthropic key now lives in Supabase Edge Function secrets; arg ignored) ──
+  const runSetup = useCallback(async (_anthropicKey: string, supaUrl: string, supaAnon: string) => {
     if (!supaUrl) { toast('Please paste your Supabase Project URL.', 'err'); return false; }
     if (!supaAnon) { toast('Please paste your Supabase Anon Key.', 'err'); return false; }
     let cleanUrl = supaUrl.trim();
@@ -1524,18 +1523,15 @@ const ingestUrl = useCallback(async (url: string) => {
     cleanUrl = cleanUrl.replace(/\/+$/, '');
     const ok = await tryConnect(cleanUrl, supaAnon);
     if (!ok) { toast('Could not connect to Supabase.', 'err'); return false; }
-    setApiKey(anthropicKey);
-    apiKeyRef.current = anthropicKey;
     setSbUrl(cleanUrl);
     sbUrlRef.current = cleanUrl;
     setSbAnon(supaAnon);
     sbAnonRef.current = supaAnon;
-    await dbSet('aria_config', 'anthropic_key', anthropicKey);
     lsSave();
     setIsSetupComplete(true);
     await bootApp();
     return true;
-  }, [tryConnect, dbSet, lsSave, bootApp, toast]);
+  }, [tryConnect, lsSave, bootApp, toast]);
 
   // ── Auto-boot: always connect using hardcoded credentials, overlay localStorage extras ──
   useEffect(() => {
