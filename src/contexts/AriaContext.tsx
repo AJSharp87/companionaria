@@ -150,7 +150,7 @@ export const useAriaOptional = () => useContext(AriaContext);
 export const AriaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dbRef = useRef<SupabaseClient | null>(null);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState('server');
   const HARDCODED_SB_URL = 'https://qjlrytmjuxfzlcpfqndr.supabase.co';
   const HARDCODED_SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqbHJ5dG1qdXhmemxjcGZxbmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODY0OTcsImV4cCI6MjA5MTg2MjQ5N30.i24pMLTNkNpZRUBR-HYa1rZ9mwRCSJ0K03PqYX9bapE';
   const [sbUrl, setSbUrl] = useState(HARDCODED_SB_URL);
